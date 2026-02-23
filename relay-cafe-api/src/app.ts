@@ -40,7 +40,10 @@ app.get('/health', async (c) => {
   }
 })
 
-app.route('/auth', authRouter)
-app.route('/me', meRouter)
-app.use('/messages/*', authMiddleware)
-app.route('/messages', messagesRouter)
+const v1 = new Hono()
+v1.route('/auth', authRouter)
+v1.route('/me', meRouter)
+v1.use('/messages/*', authMiddleware)
+v1.route('/messages', messagesRouter)
+
+app.route('/v1', v1)
