@@ -22,9 +22,7 @@ describe('POST /auth/apple', () => {
       body: { identityToken: 'user-one' },
     })
     expect(status).toBe(200)
-    expect(json!.sessionToken).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    )
+    expect(json!.sessionToken).toMatch(/^[0-9a-f]{64}$/)
     expect(json!.expiresAt).toBeTruthy()
   })
 

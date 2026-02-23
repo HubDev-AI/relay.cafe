@@ -1,8 +1,8 @@
 import { db } from '../../src/db'
 import { users, sessions, dailyTokens, messages } from '../../src/db/schema'
 import { sql } from 'drizzle-orm'
-import { randomUUID } from 'node:crypto'
-import { createHash } from 'node:crypto'
+import { randomUUID, createHash } from 'node:crypto'
+import { generateToken, hashToken } from '../../src/lib/sessionToken'
 
 /**
  * Wipe all rows. Call in beforeAll/beforeEach.
@@ -28,12 +28,14 @@ export async function createUser(appleSubId = `test-${randomUUID()}`) {
 
 /**
  * Create a session for an existing user.
- * Returns the session token (= session.id UUID).
+ * Returns the raw session token (64-char hex).
  */
 export async function createSession(userId: string, expiresInMs = 30 * 24 * 60 * 60 * 1000) {
+  const rawToken = generateToken()
+  const tokenHash = hashToken(rawToken)
   const expiresAt = new Date(Date.now() + expiresInMs)
-  const [session] = await db.insert(sessions).values({ userId, expiresAt }).returning()
-  return session!.id
+  await db.insert(sessions).values({ userId, tokenHash, expiresAt })
+  return rawToken
 }
 
 /**
