@@ -1,5 +1,5 @@
 import { db } from '../db'
-import { messages, ipEvents } from '../db/schema'
+import { messages } from '../db/schema'
 import { lt, sql } from 'drizzle-orm'
 
 export function buildCleanupQueries(): string[] {
@@ -10,7 +10,7 @@ export function buildCleanupQueries(): string[] {
 }
 
 export async function runCleanup(): Promise<void> {
-  await db.delete(messages).where(lt(messages.expiresAt, new Date()))
-  await db.execute(sql`DELETE FROM ip_events WHERE created_at < NOW() - INTERVAL '48 hours'`)
-  console.log('[cleanup] expired messages and ip_events pruned')
+  const msgResult = await db.delete(messages).where(lt(messages.expiresAt, new Date())).returning()
+  const ipResult = await db.execute(sql`DELETE FROM ip_events WHERE created_at < NOW() - INTERVAL '48 hours'`)
+  console.log(`[cleanup] pruned ${msgResult.length} expired messages and ip_events`)
 }

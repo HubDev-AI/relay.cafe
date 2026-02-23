@@ -4,6 +4,17 @@ import { createHash } from 'node:crypto'
 // In-memory store. For multi-instance Railway deploys, swap with Redis.
 const store = new Map<string, { count: number; resetAt: number }>()
 
+// Sweep expired entries every 60 seconds to prevent unbounded memory growth
+const SWEEP_INTERVAL_MS = 60_000
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, entry] of store) {
+    if (entry.resetAt < now) {
+      store.delete(key)
+    }
+  }
+}, SWEEP_INTERVAL_MS).unref()
+
 interface Options {
   maxRequests: number
   windowMs: number

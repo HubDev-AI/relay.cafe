@@ -20,18 +20,27 @@ messagesRouter.post('/', async (c) => {
   const userId = c.get('userId') as string
   const today = new Date().toISOString().slice(0, 10)
 
-  // Upsert daily token row and check
+  // Upsert daily token row
   await db
     .insert(dailyTokens)
     .values({ userId, date: today, sendUsed: false, receiveUsed: false })
     .onConflictDoNothing()
 
-  const [tokens] = await db
-    .select()
-    .from(dailyTokens)
-    .where(and(eq(dailyTokens.userId, userId), eq(dailyTokens.date, today)))
+  // Atomically claim the send token: UPDATE ... WHERE sendUsed = false
+  // Returns the updated row only if the token was available (prevents TOCTOU race)
+  const claimed = await db
+    .update(dailyTokens)
+    .set({ sendUsed: true })
+    .where(
+      and(
+        eq(dailyTokens.userId, userId),
+        eq(dailyTokens.date, today),
+        eq(dailyTokens.sendUsed, false),
+      ),
+    )
+    .returning()
 
-  if (tokens.sendUsed) {
+  if (claimed.length === 0) {
     return c.json({ error: 'Already sent today.' }, 429)
   }
 
@@ -49,12 +58,6 @@ messagesRouter.post('/', async (c) => {
     expiresAt,
   })
 
-  // Mark send token used
-  await db
-    .update(dailyTokens)
-    .set({ sendUsed: true })
-    .where(and(eq(dailyTokens.userId, userId), eq(dailyTokens.date, today)))
-
   return c.body(null, 204)
 })
 
@@ -62,45 +65,74 @@ messagesRouter.get('/today', async (c) => {
   const userId = c.get('userId') as string
   const today = new Date().toISOString().slice(0, 10)
 
+  // Upsert daily token row
   await db
     .insert(dailyTokens)
     .values({ userId, date: today, sendUsed: false, receiveUsed: false })
     .onConflictDoNothing()
 
-  const [tokens] = await db
-    .select()
-    .from(dailyTokens)
-    .where(and(eq(dailyTokens.userId, userId), eq(dailyTokens.date, today)))
+  // Atomically claim the receive token (prevents TOCTOU race)
+  const claimed = await db
+    .update(dailyTokens)
+    .set({ receiveUsed: true })
+    .where(
+      and(
+        eq(dailyTokens.userId, userId),
+        eq(dailyTokens.date, today),
+        eq(dailyTokens.receiveUsed, false),
+      ),
+    )
+    .returning()
 
-  if (tokens.receiveUsed) {
+  if (claimed.length === 0) {
     return c.json({ error: 'Already received today.' }, 429)
   }
 
-  // Pick a random undelivered, unexpired message
-  const [msg] = await db
-    .select()
-    .from(messages)
-    .where(and(eq(messages.delivered, false), gt(messages.expiresAt, new Date())))
-    .orderBy(sql`RANDOM()`)
-    .limit(1)
+  // Atomically claim a random undelivered, unexpired message using
+  // a CTE with FOR UPDATE SKIP LOCKED to prevent two receivers
+  // from getting the same message.
+  const claimedMessages = await db.execute<{
+    id: string
+    ciphertext: string
+    encrypted_message_key: string
+    kms_key_version: string
+    iv: string
+  }>(sql`
+    WITH candidate AS (
+      SELECT id FROM messages
+      WHERE delivered = false AND expires_at > NOW()
+      ORDER BY RANDOM()
+      LIMIT 1
+      FOR UPDATE SKIP LOCKED
+    )
+    DELETE FROM messages
+    USING candidate
+    WHERE messages.id = candidate.id
+    RETURNING messages.id, messages.ciphertext,
+              messages.encrypted_message_key, messages.kms_key_version,
+              messages.iv
+  `)
+
+  const msg = claimedMessages[0]
 
   if (!msg) {
-    // Quiet day — token NOT consumed
+    // Quiet day -- no messages available. Roll back the receive token
+    // so the user can try again later.
+    await db
+      .update(dailyTokens)
+      .set({ receiveUsed: false })
+      .where(
+        and(
+          eq(dailyTokens.userId, userId),
+          eq(dailyTokens.date, today),
+        ),
+      )
     return c.body(null, 204)
   }
 
   // Decrypt
-  const key = await unwrapKey(msg.encryptedMessageKey, msg.kmsKeyVersion)
+  const key = await unwrapKey(msg.encrypted_message_key, msg.kms_key_version)
   const text = await decryptMessage(msg.ciphertext, msg.iv, key)
-
-  // Hard delete message row immediately
-  await db.delete(messages).where(eq(messages.id, msg.id))
-
-  // Mark receive token used
-  await db
-    .update(dailyTokens)
-    .set({ receiveUsed: true })
-    .where(and(eq(dailyTokens.userId, userId), eq(dailyTokens.date, today)))
 
   return c.json({ id: msg.id, text })
 })
