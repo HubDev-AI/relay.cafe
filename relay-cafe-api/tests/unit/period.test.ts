@@ -12,30 +12,27 @@ describe('currentPeriod', () => {
     }
   })
 
-  test('production mode (86400) returns YYYY-MM-DD', () => {
+  test('production mode (86400) returns epoch day number', () => {
     process.env.TOKEN_PERIOD_SECONDS = '86400'
     const result = currentPeriod()
-    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(typeof result).toBe('number')
+    const expectedDay = Math.floor(Date.now() / (86400 * 1000))
+    expect(result).toBe(expectedDay)
   })
 
-  test('unset TOKEN_PERIOD_SECONDS defaults to YYYY-MM-DD', () => {
+  test('unset TOKEN_PERIOD_SECONDS defaults to epoch day', () => {
     delete process.env.TOKEN_PERIOD_SECONDS
     const result = currentPeriod()
-    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-  })
-
-  test('production mode date matches UTC date', () => {
-    process.env.TOKEN_PERIOD_SECONDS = '86400'
-    const result = currentPeriod()
-    const expected = new Date().toISOString().slice(0, 10)
-    expect(result).toBe(expected)
+    expect(typeof result).toBe('number')
+    const expectedDay = Math.floor(Date.now() / (86400 * 1000))
+    expect(result).toBe(expectedDay)
   })
 
   test('test mode (< 86400) returns numeric period ID', () => {
     process.env.TOKEN_PERIOD_SECONDS = '300'
     const result = currentPeriod()
-    expect(result).toMatch(/^\d+$/)
-    expect(Number(result)).toBeGreaterThan(0)
+    expect(typeof result).toBe('number')
+    expect(result).toBeGreaterThan(0)
   })
 
   test('test mode period ID is consistent within same period', () => {
@@ -53,9 +50,10 @@ describe('currentPeriod', () => {
     expect(a).not.toBe(b)
   })
 
-  test('very large TOKEN_PERIOD_SECONDS (>= 86400) uses date format', () => {
+  test('very large TOKEN_PERIOD_SECONDS returns numeric period', () => {
     process.env.TOKEN_PERIOD_SECONDS = '100000'
     const result = currentPeriod()
-    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(typeof result).toBe('number')
+    expect(result).toBeGreaterThan(0)
   })
 })

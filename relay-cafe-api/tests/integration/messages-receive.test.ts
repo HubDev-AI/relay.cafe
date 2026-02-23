@@ -15,7 +15,7 @@ describe('GET /messages/today (receive)', () => {
     const { plaintext } = await createMessage()
     const receiver = await createAuthenticatedUser()
 
-    const { status, json } = await requestJSON<{ id: string; text: string; expiresAt: string }>('/messages/today', {
+    const { status, json } = await requestJSON<{ id: string; text: string; expiresAt: number }>('/messages/today', {
       token: receiver.token,
     })
     expect(status).toBe(200)
@@ -86,19 +86,14 @@ describe('GET /messages/today (receive)', () => {
     expect(status).toBe(429)
   })
 
-  test('expiresAt is valid ISO8601 with milliseconds', async () => {
+  test('expiresAt is epoch milliseconds (number)', async () => {
     await createMessage()
     const receiver = await createAuthenticatedUser()
-    const { json } = await requestJSON<{ expiresAt: string }>('/messages/today', {
+    const { json } = await requestJSON<{ expiresAt: number }>('/messages/today', {
       token: receiver.token,
     })
-    const expiresAt = json!.expiresAt
-    const parsed = new Date(expiresAt)
-    expect(parsed.getTime()).toBeGreaterThan(0)
-    // Verify ISO format compatible with iOS decoder
-    const isoWithMs = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/
-    const isoWithoutMs = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z/
-    expect(isoWithMs.test(expiresAt) || isoWithoutMs.test(expiresAt)).toBe(true)
+    expect(typeof json!.expiresAt).toBe('number')
+    expect(json!.expiresAt).toBeGreaterThan(Date.now() - 5000)
   })
 
   test('expired message is NOT served', async () => {

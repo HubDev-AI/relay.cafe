@@ -138,8 +138,8 @@ messagesRouter.get('/today', async (c) => {
   const text = await decryptMessage(msg.ciphertext, msg.iv, key)
 
   const expiresAt = msg.expires_at instanceof Date
-    ? msg.expires_at.toISOString()
-    : new Date(msg.expires_at).toISOString()
+    ? msg.expires_at.getTime()
+    : new Date(msg.expires_at).getTime()
 
   return c.json({ id: msg.id, text, expiresAt })
 })
