@@ -11,13 +11,13 @@ mock.module('../../src/lib/appleAuth', () => ({
   },
 }))
 
-describe('POST /auth/apple', () => {
+describe('POST /v1/auth/apple', () => {
   beforeAll(async () => {
     await resetDB()
   })
 
   test('valid token creates user and session', async () => {
-    const { status, json } = await requestJSON<{ sessionToken: string; expiresAt: number }>('/auth/apple', {
+    const { status, json } = await requestJSON<{ sessionToken: string; expiresAt: number }>('/v1/auth/apple', {
       method: 'POST',
       body: { identityToken: 'user-one' },
     })
@@ -27,11 +27,11 @@ describe('POST /auth/apple', () => {
   })
 
   test('same Apple sub returns same user (upsert)', async () => {
-    const r1 = await requestJSON<{ sessionToken: string }>('/auth/apple', {
+    const r1 = await requestJSON<{ sessionToken: string }>('/v1/auth/apple', {
       method: 'POST',
       body: { identityToken: 'same-user' },
     })
-    const r2 = await requestJSON<{ sessionToken: string }>('/auth/apple', {
+    const r2 = await requestJSON<{ sessionToken: string }>('/v1/auth/apple', {
       method: 'POST',
       body: { identityToken: 'same-user' },
     })
@@ -42,7 +42,7 @@ describe('POST /auth/apple', () => {
   })
 
   test('invalid token returns 401', async () => {
-    const { status, json } = await requestJSON('/auth/apple', {
+    const { status, json } = await requestJSON('/v1/auth/apple', {
       method: 'POST',
       body: { identityToken: 'INVALID' },
     })
@@ -51,7 +51,7 @@ describe('POST /auth/apple', () => {
   })
 
   test('missing identityToken returns 400', async () => {
-    const { status } = await requestJSON('/auth/apple', {
+    const { status } = await requestJSON('/v1/auth/apple', {
       method: 'POST',
       body: {},
     })
@@ -59,7 +59,7 @@ describe('POST /auth/apple', () => {
   })
 
   test('non-string identityToken returns 400', async () => {
-    const { status } = await requestJSON('/auth/apple', {
+    const { status } = await requestJSON('/v1/auth/apple', {
       method: 'POST',
       body: { identityToken: 12345 },
     })
@@ -67,7 +67,7 @@ describe('POST /auth/apple', () => {
   })
 
   test('expiresAt is epoch ms ~30 days in the future', async () => {
-    const { json } = await requestJSON<{ expiresAt: number }>('/auth/apple', {
+    const { json } = await requestJSON<{ expiresAt: number }>('/v1/auth/apple', {
       method: 'POST',
       body: { identityToken: 'expiry-check' },
     })
@@ -80,7 +80,7 @@ describe('POST /auth/apple', () => {
   })
 
   test('deviceFingerprint is stored if provided', async () => {
-    const { status, json } = await requestJSON<{ sessionToken: string }>('/auth/apple', {
+    const { status, json } = await requestJSON<{ sessionToken: string }>('/v1/auth/apple', {
       method: 'POST',
       body: { identityToken: 'fingerprint-user', deviceFingerprint: 'iPhone16,1-18.0-1.0' },
     })
@@ -89,29 +89,29 @@ describe('POST /auth/apple', () => {
   })
 })
 
-describe('DELETE /auth/session', () => {
+describe('DELETE /v1/auth/session', () => {
   test('valid session is deleted', async () => {
     await resetDB()
     const auth = await createAuthenticatedUser()
-    const res = await request('/auth/session', { method: 'DELETE', token: auth.token })
+    const res = await request('/v1/auth/session', { method: 'DELETE', token: auth.token })
     expect(res.status).toBe(204)
   })
 
   test('deleted session no longer authenticates', async () => {
     await resetDB()
     const auth = await createAuthenticatedUser()
-    await request('/auth/session', { method: 'DELETE', token: auth.token })
-    const { status } = await requestJSON('/me/status', { token: auth.token })
+    await request('/v1/auth/session', { method: 'DELETE', token: auth.token })
+    const { status } = await requestJSON('/v1/me/status', { token: auth.token })
     expect(status).toBe(401)
   })
 
   test('no auth returns 401', async () => {
-    const res = await request('/auth/session', { method: 'DELETE' })
+    const res = await request('/v1/auth/session', { method: 'DELETE' })
     expect(res.status).toBe(401)
   })
 })
 
-describe('POST /auth/apple rate limiting', () => {
+describe('POST /v1/auth/apple rate limiting', () => {
   beforeAll(async () => {
     await resetDB()
   })
@@ -119,7 +119,7 @@ describe('POST /auth/apple rate limiting', () => {
   test('allows 5 requests from same IP', async () => {
     const ip = uniqueIP()
     for (let i = 0; i < 5; i++) {
-      const { status } = await requestJSON('/auth/apple', {
+      const { status } = await requestJSON('/v1/auth/apple', {
         method: 'POST',
         body: { identityToken: `rate-test-${i}` },
         ip,
@@ -131,13 +131,13 @@ describe('POST /auth/apple rate limiting', () => {
   test('6th request from same IP returns 429', async () => {
     const ip = uniqueIP()
     for (let i = 0; i < 5; i++) {
-      await request('/auth/apple', {
+      await request('/v1/auth/apple', {
         method: 'POST',
         body: { identityToken: `rate-block-${i}` },
         ip,
       })
     }
-    const { status } = await requestJSON('/auth/apple', {
+    const { status } = await requestJSON('/v1/auth/apple', {
       method: 'POST',
       body: { identityToken: 'rate-block-6' },
       ip,
@@ -150,14 +150,39 @@ describe('POST /auth/apple rate limiting', () => {
     const ipB = uniqueIP()
     // Exhaust IP A
     for (let i = 0; i < 5; i++) {
-      await request('/auth/apple', { method: 'POST', body: { identityToken: `a-${i}` }, ip: ipA })
+      await request('/v1/auth/apple', { method: 'POST', body: { identityToken: `a-${i}` }, ip: ipA })
     }
     // IP B should still work
-    const { status } = await requestJSON('/auth/apple', {
+    const { status } = await requestJSON('/v1/auth/apple', {
       method: 'POST',
       body: { identityToken: 'b-1' },
       ip: ipB,
     })
+    expect(status).toBe(200)
+  })
+})
+
+describe('unversioned routes return 404', () => {
+  test('GET /messages/today returns 404', async () => {
+    const { status } = await requestJSON('/messages/today')
+    expect(status).toBe(404)
+  })
+
+  test('GET /me/status returns 404', async () => {
+    const { status } = await requestJSON('/me/status')
+    expect(status).toBe(404)
+  })
+
+  test('POST /auth/apple returns 404', async () => {
+    const { status } = await requestJSON('/auth/apple', {
+      method: 'POST',
+      body: { identityToken: 'test' },
+    })
+    expect(status).toBe(404)
+  })
+
+  test('GET /health still works at root', async () => {
+    const { status } = await requestJSON('/health')
     expect(status).toBe(200)
   })
 })
