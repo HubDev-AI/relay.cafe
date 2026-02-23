@@ -8,8 +8,7 @@
 | 2026-02-23 | iOS typecheck | `import Translation` placed inside a struct body | Swift imports are file-level only; put `import Translation` at top of file |
 | 2026-02-23 | swiftc | `swiftc -target arm64-apple-ios17.0-simulator` without full Xcode path fails | Use `/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -sdk $(xcrun --sdk iphonesimulator --show-sdk-path)` |
 | 2026-02-23 | API | Hono endpoint returned `c.body(null, 204)` for send; iOS `validate()` treated it as `APIError.noMessage` | Always return `c.json({ ok: true }, 201)` for successful mutation responses |
-| 2026-02-23 | iOS | `DateDecodingStrategy.iso8601` rejects fractional seconds; JS `toISOString()` always emits them (`"2026-02-23T11:45:07.145Z"`) | Use custom decoder with `ISO8601DateFormatter` + `.withFractionalSeconds` option |
-| 2026-02-23 | API | `daily_tokens.date` typed as PostgreSQL `DATE` rejected numeric period keys (e.g. `5906154`) | Migrate column to `TEXT` — supports both YYYY-MM-DD and numeric period IDs |
+| 2026-02-23 | API+iOS | Dates were serialized as ISO8601 strings — fragile across platforms (fractional seconds, timezone) | Use epoch milliseconds (numbers) for all date wire formats; daily_tokens.date is BIGINT epoch day |
 | 2026-02-23 | API | Running `bun run src/app.ts` does nothing — it just exports the Hono app | Real server entry point is `src/index.ts`; `src/app.ts` is just the app factory |
 | 2026-02-23 | git | Copying a directory that contains `.git` causes git to add it as a gitlink (mode 160000) not a plain directory | Remove `.git` from the copy before `git add`, or use `git rm --cached -f` + re-add |
 

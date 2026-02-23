@@ -15,7 +15,7 @@ describe('GET /me/status', () => {
   })
 
   test('fresh user has both tokens available', async () => {
-    const { status, json } = await requestJSON<{ sendUsed: boolean; receiveUsed: boolean; date: string }>('/me/status', { token })
+    const { status, json } = await requestJSON<{ sendUsed: boolean; receiveUsed: boolean; date: number }>('/me/status', { token })
     expect(status).toBe(200)
     expect(json!.sendUsed).toBe(false)
     expect(json!.receiveUsed).toBe(false)

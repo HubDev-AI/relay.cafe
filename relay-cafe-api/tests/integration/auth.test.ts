@@ -17,7 +17,7 @@ describe('POST /auth/apple', () => {
   })
 
   test('valid token creates user and session', async () => {
-    const { status, json } = await requestJSON<{ sessionToken: string; expiresAt: string }>('/auth/apple', {
+    const { status, json } = await requestJSON<{ sessionToken: string; expiresAt: number }>('/auth/apple', {
       method: 'POST',
       body: { identityToken: 'user-one' },
     })
@@ -68,17 +68,17 @@ describe('POST /auth/apple', () => {
     expect(status).toBe(400)
   })
 
-  test('expiresAt is a valid ISO8601 date ~30 days in the future', async () => {
-    const { json } = await requestJSON<{ expiresAt: string }>('/auth/apple', {
+  test('expiresAt is epoch ms ~30 days in the future', async () => {
+    const { json } = await requestJSON<{ expiresAt: number }>('/auth/apple', {
       method: 'POST',
       body: { identityToken: 'expiry-check' },
     })
-    const expiresAt = new Date(json!.expiresAt)
+    expect(typeof json!.expiresAt).toBe('number')
     const now = Date.now()
     const thirtyDays = 30 * 24 * 60 * 60 * 1000
     // Allow 5 seconds of clock skew
-    expect(expiresAt.getTime()).toBeGreaterThan(now + thirtyDays - 5000)
-    expect(expiresAt.getTime()).toBeLessThan(now + thirtyDays + 5000)
+    expect(json!.expiresAt).toBeGreaterThan(now + thirtyDays - 5000)
+    expect(json!.expiresAt).toBeLessThan(now + thirtyDays + 5000)
   })
 
   test('deviceFingerprint is stored if provided', async () => {

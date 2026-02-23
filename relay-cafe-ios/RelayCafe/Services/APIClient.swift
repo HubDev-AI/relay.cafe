@@ -5,7 +5,7 @@ import Foundation
 struct DayStatus: Codable {
     let sendUsed: Bool
     let receiveUsed: Bool
-    let date: String
+    let date: Int
 }
 
 struct MessageResponse: Codable, Equatable, Identifiable {
@@ -43,16 +43,11 @@ actor APIClient {
     private let keychain = KeychainManager()
     private let decoder: JSONDecoder = {
         let d = JSONDecoder()
-        // iso8601 with fractional seconds (JavaScript's toISOString() always includes ms)
-        let fmt = ISO8601DateFormatter()
-        fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let fmt2 = ISO8601DateFormatter() // fallback without ms
+        // Server sends dates as epoch milliseconds (number)
         d.dateDecodingStrategy = .custom { decoder in
             let c = try decoder.singleValueContainer()
-            let s = try c.decode(String.self)
-            if let d = fmt.date(from: s) { return d }
-            if let d = fmt2.date(from: s) { return d }
-            throw DecodingError.dataCorruptedError(in: c, debugDescription: "Invalid ISO8601 date: \(s)")
+            let ms = try c.decode(Double.self)
+            return Date(timeIntervalSince1970: ms / 1000)
         }
         return d
     }()
@@ -60,8 +55,9 @@ actor APIClient {
     init(baseURL: URL = APIClient.defaultBaseURL) {
         self.baseURL = baseURL
         sessionToken = try? keychain.load(key: "sessionToken")
-        if let expiryString = try? keychain.load(key: "tokenExpiresAt") {
-            tokenExpiresAt = ISO8601DateFormatter().date(from: expiryString)
+        if let expiryString = try? keychain.load(key: "tokenExpiresAt"),
+           let ms = Double(expiryString) {
+            tokenExpiresAt = Date(timeIntervalSince1970: ms / 1000)
         }
     }
 
@@ -69,7 +65,7 @@ actor APIClient {
         sessionToken = token
         tokenExpiresAt = expiresAt
         try keychain.save(key: "sessionToken", value: token)
-        try keychain.save(key: "tokenExpiresAt", value: ISO8601DateFormatter().string(from: expiresAt))
+        try keychain.save(key: "tokenExpiresAt", value: String(Int(expiresAt.timeIntervalSince1970 * 1000)))
     }
 
     func clearToken() {
@@ -91,11 +87,11 @@ actor APIClient {
             "identityToken": identityToken,
             "deviceFingerprint": deviceFingerprint,
         ]
-        struct Response: Codable { let sessionToken: String; let expiresAt: String }
+        struct Response: Codable { let sessionToken: String; let expiresAt: Double }
         let response: Response = try await post("/auth/apple", body: body, requiresAuth: false)
         try setToken(
             response.sessionToken,
-            expiresAt: ISO8601DateFormatter().date(from: response.expiresAt) ?? .distantFuture
+            expiresAt: Date(timeIntervalSince1970: response.expiresAt / 1000)
         )
         return response.sessionToken
     }

@@ -55,7 +55,7 @@ authRouter.post(
       return c.json({ error: 'Failed to create session' }, 500)
     }
 
-    return c.json({ sessionToken: session.id, expiresAt: expiresAt.toISOString() })
+    return c.json({ sessionToken: session.id, expiresAt: expiresAt.getTime() })
   }
 )
 
