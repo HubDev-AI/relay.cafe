@@ -40,6 +40,7 @@ struct OnboardingView: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.bottom, 48)
+                .accessibilityIdentifier("onboarding.continueButton")
             }
             .padding(.horizontal, 28)
             .frame(maxWidth: .infinity, alignment: .leading)
