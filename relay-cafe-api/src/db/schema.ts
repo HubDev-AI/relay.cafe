@@ -12,7 +12,6 @@ export const sessions = pgTable('sessions', {
   tokenHash: text('token_hash').notNull().unique(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-  deviceFingerprint: text('device_fingerprint'),
 })
 
 export const dailyTokens = pgTable('daily_tokens', {

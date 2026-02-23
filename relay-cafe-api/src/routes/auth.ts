@@ -55,7 +55,6 @@ authRouter.post(
           userId: user.id,
           tokenHash,
           expiresAt,
-          deviceFingerprint: body.deviceFingerprint ?? null,
         })
         .returning()
       if (!session) return null

@@ -1,6 +1,5 @@
 import SwiftUI
 import AuthenticationServices
-import CryptoKit
 
 struct SignInView: View {
     let vm: AppViewModel
@@ -58,12 +57,10 @@ struct SignInView: View {
                 return
             }
 
-            let fingerprint = deviceFingerprint()
             Task {
                 do {
                     _ = try await APIClient.shared.signInWithApple(
-                        identityToken: token,
-                        deviceFingerprint: fingerprint
+                        identityToken: token
                     )
                     await MainActor.run { vm.didSignIn() }
                 } catch {
@@ -82,13 +79,4 @@ struct SignInView: View {
         }
     }
 
-    private func deviceFingerprint() -> String {
-        // identifierForVendor is unique per device+vendor combination and persists
-        // across launches (reset only on full app uninstall with no other vendor apps).
-        let vendorID = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
-        let raw = "\(vendorID)-\(UIDevice.current.systemVersion)"
-        return SHA256.hash(data: Data(raw.utf8))
-            .compactMap { String(format: "%02x", $0) }
-            .joined()
-    }
 }

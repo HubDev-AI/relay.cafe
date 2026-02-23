@@ -26,6 +26,8 @@ Other directories:
 
 Remote: `git@github.com:HubDev-AI/relay.cafe.git`
 
+**After committing on a feature branch:** Automatically push, create PR to `dev`, merge it, checkout `dev`, and pull. Do not ask — just do it.
+
 ## API Server
 
 - Entry point: `relay-cafe-api/src/index.ts` (NOT `src/app.ts` — that just exports)
