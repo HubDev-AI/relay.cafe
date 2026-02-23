@@ -1,0 +1,6 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "bun run src/index.ts"
+restartPolicyType = "on_failure"

@@ -1838,7 +1838,7 @@ final class HomeViewModel {
     var receivedMessage: MessageResponse?
     var receiveState: ReceiveState = .idle
 
-    enum ReceiveState {
+    enum ReceiveState: Equatable {
         case idle, loading, quiet, received(MessageResponse)
     }
 
@@ -1908,44 +1908,57 @@ struct HomeView: View {
         }
     }
 
+    // Layout never shifts. Buttons always visible. Only opacity + interaction changes.
     private var sendSection: some View {
-        Group {
-            if homeVM.status?.sendUsed == true {
+        let used = homeVM.status?.sendUsed == true
+        return VStack(spacing: 8) {
+            Button("Write today's message") {
+                if !used { homeVM.showCompose = true }
+            }
+            .font(.system(size: 17, weight: .regular))
+            .buttonStyle(.plain)
+            .opacity(used ? 0.3 : 1.0)
+            .disabled(used)
+
+            if used {
                 Text("You've already sent today.")
-                    .font(.system(size: 17))
+                    .font(.system(size: 13))
                     .opacity(0.4)
             } else {
-                Button("Write today's message") {
-                    homeVM.showCompose = true
-                }
-                .font(.system(size: 17, weight: .regular))
-                .buttonStyle(.plain)
+                // Reserve space so layout stays identical
+                Text(" ").font(.system(size: 13))
             }
         }
     }
 
     private var receiveSection: some View {
-        Group {
-            switch homeVM.receiveState {
-            case .loading:
-                Color.clear.frame(height: 22)  // hold space, no spinner
-            case .quiet:
-                Text("The relay is quiet today.")
-                    .font(.system(size: 17))
-                    .opacity(0.5)
-            default:
-                if homeVM.status?.receiveUsed == true {
-                    Text("You've already received today.")
-                        .font(.system(size: 17))
-                        .opacity(0.4)
-                } else {
-                    Button("Open today's message") {
-                        Task { await homeVM.openReceive() }
-                    }
-                    .font(.system(size: 17, weight: .regular))
-                    .buttonStyle(.plain)
+        let used = homeVM.status?.receiveUsed == true
+        let isLoading = homeVM.receiveState == .loading
+        let isQuiet = homeVM.receiveState == .quiet
+        return VStack(spacing: 8) {
+            Button("Open today's message") {
+                if !used && !isLoading {
+                    Task { await homeVM.openReceive() }
                 }
             }
+            .font(.system(size: 17, weight: .regular))
+            .buttonStyle(.plain)
+            .opacity(used || isLoading ? 0.3 : 1.0)
+            .disabled(used || isLoading)
+
+            // Sub-label: stable height, content varies
+            Group {
+                if used {
+                    Text("You've already received today.")
+                        .opacity(0.4)
+                } else if isQuiet {
+                    Text("The relay is quiet today.")
+                        .opacity(0.4)
+                } else {
+                    Text(" ")  // holds space
+                }
+            }
+            .font(.system(size: 13))
         }
     }
 

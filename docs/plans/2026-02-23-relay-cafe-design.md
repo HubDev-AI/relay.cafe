@@ -235,13 +235,26 @@ DELETE FROM ip_events WHERE created_at < NOW() - INTERVAL '48 hours';
 
 ### Home state machine
 
-```
-send_used = false  →  [ Write today's message ]
-send_used = true   →  "You've already sent today."
+Buttons are **always visible**. Layout never shifts. Disabled state = reduced opacity + explanatory text below.
 
-receive_used = false  →  [ Open today's message ]
-receive_used = true   →  "You've already received today."
 ```
+send_used = false  →  [ Write today's message ]          (active)
+send_used = true   →  [ Write today's message ]          (disabled, 60% opacity)
+                      "You've already sent today."       (small, below button)
+
+receive_used = false  →  [ Open today's message ]        (active)
+receive_used = true   →  [ Open today's message ]        (disabled, 60% opacity)
+                         "You've already received today."(small, below button)
+```
+
+**Daily reset (00:00 UTC):**
+- Tokens reset silently on the server
+- `GET /me/status` returns fresh state on every app open
+- Buttons become active again with no announcement
+- No countdown, no "new day" message, no animation marking the reset
+
+**Home screen is identical every day** — only token availability changes the interactive state.
+No dynamic backgrounds, no time-of-day themes, no streak indicators, no gamification of any kind.
 
 ### Message receive flow
 
