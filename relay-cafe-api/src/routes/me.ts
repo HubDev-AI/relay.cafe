@@ -7,6 +7,9 @@ import { currentPeriod } from '../lib/period'
 
 export const meRouter = new Hono()
 
+// Token status: query by (userId, currentPeriod).
+// If no row exists for today's period, both tokens are fresh (false).
+// No historical timing comparison — period number is the only input.
 meRouter.get('/status', authMiddleware, async (c) => {
   const userId = c.get('userId') as string
   const today = currentPeriod()
