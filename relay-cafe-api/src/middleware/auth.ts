@@ -2,8 +2,9 @@ import type { Context, Next } from 'hono'
 import { db } from '../db'
 import { sessions } from '../db/schema'
 import { eq } from 'drizzle-orm'
+import { hashToken } from '../lib/sessionToken'
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const HEX_64_RE = /^[0-9a-f]{64}$/
 
 export async function authMiddleware(c: Context, next: Next) {
   const header = c.req.header('Authorization')
@@ -11,18 +12,19 @@ export async function authMiddleware(c: Context, next: Next) {
     return c.json({ error: 'Unauthorized' }, 401)
   }
 
-  const token = header.slice(7)
+  const rawToken = header.slice(7)
 
-  // Validate UUID format before hitting the database to avoid
-  // Postgres "invalid input syntax for type uuid" errors
-  if (!UUID_RE.test(token)) {
+  // Validate hex format before hashing to reject obvious junk early
+  if (!HEX_64_RE.test(rawToken)) {
     return c.json({ error: 'Unauthorized' }, 401)
   }
+
+  const tokenHash = hashToken(rawToken)
 
   const [session] = await db
     .select()
     .from(sessions)
-    .where(eq(sessions.id, token))
+    .where(eq(sessions.tokenHash, tokenHash))
     .limit(1)
 
   if (!session || session.expiresAt < new Date()) {
