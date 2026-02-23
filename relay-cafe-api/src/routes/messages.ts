@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { db } from '../db'
 import { messages, dailyTokens } from '../db/schema'
-import { and, eq, gt, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { encryptMessage, decryptMessage } from '../lib/crypto'
 import { wrapKey, unwrapKey } from '../lib/kms'
 import { currentPeriod } from '../lib/period'
@@ -12,7 +12,7 @@ export const messagesRouter = new Hono()
 
 messagesRouter.post('/', async (c) => {
   const body = await c.req.json().catch(() => null)
-  if (!body?.text || typeof body.text !== 'string') {
+  if (!body?.text || typeof body.text !== 'string' || body.text.trim().length === 0) {
     return c.json({ error: 'text required' }, 400)
   }
   if (body.text.length > 1000) {
