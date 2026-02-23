@@ -1,0 +1,52 @@
+name: RelayCafe
+options:
+  bundleIdPrefix: cafe.relay
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "16.0"
+  groupSortPosition: top
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    ENABLE_TESTABILITY: YES
+
+targets:
+  RelayCafe:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: RelayCafe
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cafe.relay.app
+        INFOPLIST_FILE: RelayCafe/Info.plist
+        SWIFT_VERSION: "6.0"
+    info:
+      path: RelayCafe/Info.plist
+      properties:
+        UILaunchScreen:
+          UIColorName: ""
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSFaceIDUsageDescription: "Used for secure authentication."
+
+  RelayCafeTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: RelayCafeTests
+    dependencies:
+      - target: RelayCafe
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cafe.relay.app.tests
+        SWIFT_VERSION: "6.0"
