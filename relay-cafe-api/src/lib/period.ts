@@ -1,13 +1,10 @@
 /**
- * Returns the current token period key.
+ * Returns the current token period as an epoch-based number.
  *
- * Production (TOKEN_PERIOD_SECONDS unset or 86400): returns YYYY-MM-DD UTC — resets daily at midnight.
- * Testing (TOKEN_PERIOD_SECONDS=300): returns a numeric period ID that increments every 5 minutes.
+ * Production (TOKEN_PERIOD_SECONDS unset or 86400): epoch day (days since Unix epoch, resets at 00:00 UTC).
+ * Testing (TOKEN_PERIOD_SECONDS=300): epoch period ID that increments every N seconds.
  */
-export function currentPeriod(): string {
+export function currentPeriod(): number {
   const seconds = Number(process.env.TOKEN_PERIOD_SECONDS) || 86400
-  if (seconds >= 86400) {
-    return new Date().toISOString().slice(0, 10) // YYYY-MM-DD
-  }
-  return String(Math.floor(Date.now() / (seconds * 1000)))
+  return Math.floor(Date.now() / (seconds * 1000))
 }
