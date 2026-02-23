@@ -79,14 +79,6 @@ describe('POST /v1/auth/apple', () => {
     expect(json!.expiresAt).toBeLessThan(now + thirtyDays + 5000)
   })
 
-  test('deviceFingerprint is stored if provided', async () => {
-    const { status, json } = await requestJSON<{ sessionToken: string }>('/v1/auth/apple', {
-      method: 'POST',
-      body: { identityToken: 'fingerprint-user', deviceFingerprint: 'iPhone16,1-18.0-1.0' },
-    })
-    expect(status).toBe(200)
-    expect(json!.sessionToken).toBeTruthy()
-  })
 })
 
 describe('DELETE /v1/auth/session', () => {

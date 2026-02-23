@@ -1490,3 +1490,54 @@ That keeps it minimal and unambiguous.
 
 This is a real integrity fix — not feature creep.
 
+Relay.cafe – Enable Text Selection (No UI Changes)
+
+We are enabling text selection on received messages.
+
+Implement the following:
+	1.	Allow standard iOS text selection on the message text.
+	•	Users should be able to long-press and copy text using native system behavior.
+	•	Do NOT add a visible “Copy” button.
+	•	Do NOT add a share button.
+	•	Do NOT add export UI.
+	2.	Do NOT modify layout, alignment, or styling.
+	3.	Do NOT change expiration logic.
+	•	Message expiration remains based only on TTL and time checks.
+	•	Copying text does NOT invalidate the message.
+	4.	Do NOT add any visual indication that copying is possible.
+
+This is purely enabling native text selection for usability in case translation is needed.
+
+Keep implementation minimal.
+
+Relay.cafe – Translation Behavior Final Confirmation
+
+We are finalizing the translation behavior for v1.
+
+Confirm and enforce the following:
+	1.	Translation must use TranslationSession(installedSource:target:) only.
+	•	Do NOT call prepareTranslation().
+	•	Do NOT trigger any system download prompt.
+	•	Do NOT attempt to download language models automatically.
+	2.	Behavior must be:
+	•	Language differs + model installed → auto-translate and show:
+“Originally written in [Language].”
+	•	Language differs + model NOT installed → do NOT attempt translation.
+Set translationFailed = true and show:
+“Translation unavailable.\nYou may read the original.”
+	•	Same language → no translation attempt, no caption.
+	•	iOS 17 → no translation, original text only.
+	3.	Confirm that:
+	•	installedSource uses detected language code.
+	•	target uses the user’s preferred language code.
+	•	If mapping to Locale.Language fails, skip translation safely.
+	4.	Do NOT add:
+	•	A “Download language” button.
+	•	A translation settings toggle.
+	•	Any UI that can trigger model download.
+	5.	Confirm that translation failure does not:
+	•	Block message display.
+	•	Crash the view.
+	•	Trigger Sentry errors unnecessarily.
+
+Return a short confirmation summary.

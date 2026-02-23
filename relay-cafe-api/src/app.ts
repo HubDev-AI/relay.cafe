@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm'
 import { authRouter } from './routes/auth'
 import { meRouter } from './routes/me'
 import { messagesRouter } from './routes/messages'
+import { telemetryRouter } from './routes/telemetry'
 import { authMiddleware } from './middleware/auth'
 import { createRateLimitMiddleware } from './middleware/rateLimit'
 import { rateLimiter } from './lib/container'
@@ -45,5 +46,7 @@ v1.route('/auth', authRouter)
 v1.route('/me', meRouter)
 v1.use('/messages/*', authMiddleware)
 v1.route('/messages', messagesRouter)
+v1.use('/telemetry/*', authMiddleware)
+v1.route('/telemetry', telemetryRouter)
 
 app.route('/v1', v1)

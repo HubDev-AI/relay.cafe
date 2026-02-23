@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 // MARK: - Models
 
@@ -82,10 +83,9 @@ actor APIClient {
 
     // MARK: Auth
 
-    func signInWithApple(identityToken: String, deviceFingerprint: String) async throws -> String {
+    func signInWithApple(identityToken: String) async throws -> String {
         let body: [String: Any] = [
             "identityToken": identityToken,
-            "deviceFingerprint": deviceFingerprint,
         ]
         struct Response: Codable { let sessionToken: String; let expiresAt: Double }
         let response: Response = try await post("/v1/auth/apple", body: body, requiresAuth: false)
@@ -124,6 +124,28 @@ actor APIClient {
     func deleteAccount() async throws {
         try await delete("/v1/me")
         clearToken()
+    }
+
+    // MARK: Telemetry
+
+    func reportTranslationEvent(
+        event: String,
+        sourceLanguage: String?,
+        targetLanguage: String?,
+        errorCode: String? = nil,
+        errorDomain: String? = nil
+    ) async {
+        var body: [String: Any] = [
+            "event": event,
+            "osVersion": "iOS \(UIDevice.current.systemVersion)",
+            "appVersion": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown",
+        ]
+        if let sourceLanguage { body["sourceLanguage"] = sourceLanguage }
+        if let targetLanguage { body["targetLanguage"] = targetLanguage }
+        if let errorCode { body["errorCode"] = errorCode }
+        if let errorDomain { body["errorDomain"] = errorDomain }
+
+        try? await postEmpty("/v1/telemetry", body: body)
     }
 
     // MARK: Private helpers
