@@ -33,6 +33,7 @@ struct HomeView: View {
                 }
             }
             .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
+                guard scenePhase == .active else { return }
                 Task { await homeVM.loadStatus() }
             }
             .onChange(of: homeVM.isUnauthorized) {
