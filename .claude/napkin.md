@@ -8,8 +8,7 @@
 | 2026-02-23 | iOS typecheck | `import Translation` placed inside a struct body | Swift imports are file-level only; put `import Translation` at top of file |
 | 2026-02-23 | swiftc | `swiftc -target arm64-apple-ios17.0-simulator` without full Xcode path fails | Use `/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -sdk $(xcrun --sdk iphonesimulator --show-sdk-path)` |
 | 2026-02-23 | API | Hono endpoint returned `c.body(null, 204)` for send; iOS `validate()` treated it as `APIError.noMessage` | Always return `c.json({ ok: true }, 201)` for successful mutation responses |
-| 2026-02-23 | iOS | `DateDecodingStrategy.iso8601` rejects fractional seconds; JS `toISOString()` always emits them (`"2026-02-23T11:45:07.145Z"`) | Use custom decoder with `ISO8601DateFormatter` + `.withFractionalSeconds` option |
-| 2026-02-23 | API | `daily_tokens.date` typed as PostgreSQL `DATE` rejected numeric period keys (e.g. `5906154`) | Migrate column to `TEXT` — supports both YYYY-MM-DD and numeric period IDs |
+| 2026-02-23 | API+iOS | Dates were serialized as ISO8601 strings — fragile across platforms (fractional seconds, timezone) | Use epoch milliseconds (numbers) for all date wire formats; daily_tokens.date is BIGINT epoch day |
 | 2026-02-23 | API | Running `bun run src/app.ts` does nothing — it just exports the Hono app | Real server entry point is `src/index.ts`; `src/app.ts` is just the app factory |
 | 2026-02-23 | git | Copying a directory that contains `.git` causes git to add it as a gitlink (mode 160000) not a plain directory | Remove `.git` from the copy before `git add`, or use `git rm --cached -f` + re-add |
 
@@ -19,6 +18,9 @@
 - iOS 17.0 minimum (required for Translation.framework)
 - No haptics, no sound, no bounce, no spring anywhere in the app
 
+## Final Decisions (LOCKED — do not change)
+- **Message layout**: left-aligned, NOT horizontally centered. Slightly ABOVE vertical center (1 spacer above, 2 below). More space below than above. No cards, no containers, no borders, no frames. Translation hint: left-aligned below message, muted. Close button: centered horizontally near bottom, visually secondary. Feels like a handwritten note — human, slightly asymmetrical, not staged.
+
 ## Patterns That Work
 - Drizzle ORM with `postgres` driver for Hono/Bun API
 - `jose` for Apple JWT verification against Apple's JWKS
@@ -27,6 +29,7 @@
 - `actor APIClient` for thread-safe token management in Swift
 
 ## Patterns That Don't Work
+- KMS key had no `rotationPeriod` set — config test caught it; always verify infra config with assertions, not assumptions
 
 ## Domain Notes
 - Monorepo at `relay.cafe/` with `relay-cafe-api/` and `relay-cafe-ios/` subdirectories; remote: `git@github.com:HubDev-AI/relay.cafe.git`
@@ -35,6 +38,6 @@
 - Messages hard-deleted immediately on delivery; never marked delivered first
 - Receive token NOT consumed if pool is empty (204 without token consumption)
 - `devices fingerprint = hash(deviceModel + osVersion + appVersion)` — soft signal only
-- KMS: one key version per UTC day, previous version destroyed at 26h
+- KMS: auto-rotation every 24h (`rotationPeriod: 86400s`), `destroyScheduledDuration: 2592000s` (30 days), SA needs `cloudkms.admin` on key for rotation tests
 - `Translation.framework` requires iOS 17.4+ for `text.translated()` API
 - All UI copy: no exclamation marks, no emojis, no urgency, no technical detail

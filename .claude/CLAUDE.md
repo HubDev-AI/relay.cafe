@@ -42,15 +42,16 @@ Copy `.env.example` to `.env` — never commit `.env`.
 ## Token Period System
 
 `currentPeriod()` in `src/lib/period.ts`:
-- `TOKEN_PERIOD_SECONDS >= 86400` → returns YYYY-MM-DD (daily UTC reset)
-- Otherwise → numeric period ID (for testing short cycles)
+- Always returns a number: `Math.floor(Date.now() / (seconds * 1000))`
+- Default (86400): epoch day number (days since Unix epoch)
+- Testing (e.g. 300): epoch period ID that increments every N seconds
 
-`daily_tokens.date` column is TEXT to support both formats.
+`daily_tokens.date` column is BIGINT.
 
 ## Key API Behaviours
 
 - `POST /messages` → 201 `{ ok: true }` (was 204 — breaks iOS client)
-- `GET /messages/receive` → includes `expiresAt` ISO8601 string
+- `GET /messages/today` → includes `expiresAt` as epoch milliseconds (number)
 - Receive token NOT consumed if message pool is empty
 - Messages hard-deleted on delivery
 
@@ -58,7 +59,7 @@ Copy `.env.example` to `.env` — never commit `.env`.
 
 - Min deployment: iOS 17.0
 - Architecture: `@Observable` + `@MainActor` ViewModels
-- Date decoding: custom ISO8601 decoder with `.withFractionalSeconds` (JS always emits ms)
+- Date decoding: custom decoder converts epoch milliseconds (number) to Date
 - Background refresh: scenePhase `.active` + 60s Timer in HomeView
 - No haptics, no sound, no spring/bounce animations
 - All error copy: generic, non-technical, no exclamation marks

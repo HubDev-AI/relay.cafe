@@ -23,6 +23,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: cafe.relay.app
         INFOPLIST_FILE: RelayCafe/Info.plist
+        CODE_SIGN_ENTITLEMENTS: RelayCafe/RelayCafe.entitlements
         SWIFT_VERSION: "6.0"
     info:
       path: RelayCafe/Info.plist
@@ -37,6 +38,8 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         NSFaceIDUsageDescription: "Used for secure authentication."
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
 
   RelayCafeTests:
     type: bundle.unit-test
@@ -50,3 +53,18 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: cafe.relay.app.tests
         SWIFT_VERSION: "6.0"
+        GENERATE_INFOPLIST_FILE: YES
+
+  RelayCafeUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: RelayCafeUITests
+    dependencies:
+      - target: RelayCafe
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cafe.relay.app.uitests
+        SWIFT_VERSION: "6.0"
+        GENERATE_INFOPLIST_FILE: YES
