@@ -5,8 +5,10 @@ import { users, sessions } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { verifyAppleToken } from '../lib/appleAuth'
 import { authMiddleware } from '../middleware/auth'
-import { ipRateLimit } from '../middleware/rateLimit'
+import { createRateLimitMiddleware } from '../middleware/rateLimit'
+import { rateLimiter } from '../lib/container'
 import { captureError } from '../lib/logger'
+import { generateToken, hashToken } from '../lib/sessionToken'
 
 export const authRouter = new Hono()
 
@@ -17,7 +19,7 @@ if (!APPLE_ID_SALT) {
 
 authRouter.post(
   '/apple',
-  ipRateLimit({ maxRequests: 5, windowMs: 60 * 60 * 1000 }),
+  createRateLimitMiddleware(rateLimiter, 'auth'),
   async (c) => {
     const body = await c.req.json().catch(() => null)
     if (!body?.identityToken || typeof body.identityToken !== 'string') {
@@ -44,18 +46,20 @@ authRouter.post(
       const user = existingUser ?? (await tx.insert(users).values({ appleIdHash }).returning())[0]
       if (!user) return null
 
+      const rawToken = generateToken()
+      const tokenHash = hashToken(rawToken)
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       const [session] = await tx
         .insert(sessions)
         .values({
           userId: user.id,
+          tokenHash,
           expiresAt,
-          deviceFingerprint: body.deviceFingerprint ?? null,
         })
         .returning()
       if (!session) return null
 
-      return { sessionToken: session.id, expiresAt: expiresAt.getTime() }
+      return { sessionToken: rawToken, expiresAt: expiresAt.getTime() }
     })
 
     if (!result) {
@@ -67,7 +71,8 @@ authRouter.post(
 )
 
 authRouter.delete('/session', authMiddleware, async (c) => {
-  const sessionId = c.req.header('Authorization')!.slice(7)
-  await db.delete(sessions).where(eq(sessions.id, sessionId))
+  const rawToken = c.req.header('Authorization')!.slice(7)
+  const tokenHash = hashToken(rawToken)
+  await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash))
   return c.body(null, 204)
 })

@@ -16,8 +16,8 @@ describe('concurrent receive atomicity', () => {
 
     // Fire both receives concurrently
     const [resA, resB] = await Promise.all([
-      requestJSON<{ text: string }>('/messages/today', { token: userA.token }),
-      requestJSON<{ text: string }>('/messages/today', { token: userB.token }),
+      requestJSON<{ text: string }>('/v1/messages/today', { token: userA.token }),
+      requestJSON<{ text: string }>('/v1/messages/today', { token: userB.token }),
     ])
 
     const statuses = [resA.status, resB.status].sort()
@@ -39,7 +39,7 @@ describe('concurrent receive atomicity', () => {
     )
 
     const results = await Promise.all(
-      users.map(u => requestJSON('/messages/today', { token: u.token }))
+      users.map(u => requestJSON('/v1/messages/today', { token: u.token }))
     )
 
     const got200 = results.filter(r => r.status === 200).length

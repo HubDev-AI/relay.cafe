@@ -3,7 +3,10 @@ import { sql } from 'drizzle-orm'
 import { authRouter } from './routes/auth'
 import { meRouter } from './routes/me'
 import { messagesRouter } from './routes/messages'
+import { telemetryRouter } from './routes/telemetry'
 import { authMiddleware } from './middleware/auth'
+import { createRateLimitMiddleware } from './middleware/rateLimit'
+import { rateLimiter } from './lib/container'
 import { db } from './db'
 import { captureError } from './lib/logger'
 
@@ -26,6 +29,8 @@ app.use('*', async (c, next) => {
   c.header('Cache-Control', 'no-store')
 })
 
+app.use('*', createRateLimitMiddleware(rateLimiter, 'global'))
+
 app.get('/health', async (c) => {
   try {
     await db.execute(sql`SELECT 1`)
@@ -36,7 +41,12 @@ app.get('/health', async (c) => {
   }
 })
 
-app.route('/auth', authRouter)
-app.route('/me', meRouter)
-app.use('/messages/*', authMiddleware)
-app.route('/messages', messagesRouter)
+const v1 = new Hono()
+v1.route('/auth', authRouter)
+v1.route('/me', meRouter)
+v1.use('/messages/*', authMiddleware)
+v1.route('/messages', messagesRouter)
+v1.use('/telemetry/*', authMiddleware)
+v1.route('/telemetry', telemetryRouter)
+
+app.route('/v1', v1)

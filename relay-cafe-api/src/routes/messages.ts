@@ -6,11 +6,13 @@ import { encryptMessage, decryptMessage } from '../lib/crypto'
 import { wrapKey, unwrapKey } from '../lib/kms'
 import { currentPeriod } from '../lib/period'
 import { captureError } from '../lib/logger'
+import { createRateLimitMiddleware } from '../middleware/rateLimit'
+import { rateLimiter } from '../lib/container'
 
 // authMiddleware is applied by app.ts when mounting this router
 export const messagesRouter = new Hono()
 
-messagesRouter.post('/', async (c) => {
+messagesRouter.post('/', createRateLimitMiddleware(rateLimiter, 'messages'), async (c) => {
   const body = await c.req.json().catch(() => null)
   if (!body?.text || typeof body.text !== 'string' || body.text.trim().length === 0) {
     return c.json({ error: 'text required' }, 400)
@@ -84,7 +86,7 @@ messagesRouter.post('/', async (c) => {
   }
 })
 
-messagesRouter.get('/today', async (c) => {
+messagesRouter.get('/today', createRateLimitMiddleware(rateLimiter, 'messages'), async (c) => {
   const userId = c.get('userId') as string
   const today = currentPeriod()
 

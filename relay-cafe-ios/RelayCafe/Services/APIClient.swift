@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 // MARK: - Models
 
@@ -82,13 +83,12 @@ actor APIClient {
 
     // MARK: Auth
 
-    func signInWithApple(identityToken: String, deviceFingerprint: String) async throws -> String {
+    func signInWithApple(identityToken: String) async throws -> String {
         let body: [String: Any] = [
             "identityToken": identityToken,
-            "deviceFingerprint": deviceFingerprint,
         ]
         struct Response: Codable { let sessionToken: String; let expiresAt: Double }
-        let response: Response = try await post("/auth/apple", body: body, requiresAuth: false)
+        let response: Response = try await post("/v1/auth/apple", body: body, requiresAuth: false)
         try setToken(
             response.sessionToken,
             expiresAt: Date(timeIntervalSince1970: response.expiresAt / 1000)
@@ -97,33 +97,55 @@ actor APIClient {
     }
 
     func signOut() async throws {
-        try await delete("/auth/session")
+        try await delete("/v1/auth/session")
         clearToken()
     }
 
     // MARK: Status
 
     func getStatus() async throws -> DayStatus {
-        try await get("/me/status")
+        try await get("/v1/me/status")
     }
 
     // MARK: Messages
 
     func sendMessage(text: String) async throws {
-        try await postEmpty("/messages", body: ["text": text])
+        try await postEmpty("/v1/messages", body: ["text": text])
     }
 
     func receiveMessage() async throws -> MessageResponse? {
         do {
-            return try await get("/messages/today")
+            return try await get("/v1/messages/today")
         } catch APIError.noMessage {
             return nil
         }
     }
 
     func deleteAccount() async throws {
-        try await delete("/me")
+        try await delete("/v1/me")
         clearToken()
+    }
+
+    // MARK: Telemetry
+
+    func reportTranslationEvent(
+        event: String,
+        sourceLanguage: String?,
+        targetLanguage: String?,
+        errorCode: String? = nil,
+        errorDomain: String? = nil
+    ) async {
+        var body: [String: Any] = [
+            "event": event,
+            "osVersion": "iOS \(UIDevice.current.systemVersion)",
+            "appVersion": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown",
+        ]
+        if let sourceLanguage { body["sourceLanguage"] = sourceLanguage }
+        if let targetLanguage { body["targetLanguage"] = targetLanguage }
+        if let errorCode { body["errorCode"] = errorCode }
+        if let errorDomain { body["errorDomain"] = errorDomain }
+
+        try? await postEmpty("/v1/telemetry", body: body)
     }
 
     // MARK: Private helpers
