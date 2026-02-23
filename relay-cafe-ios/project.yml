@@ -37,6 +37,8 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         NSFaceIDUsageDescription: "Used for secure authentication."
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
 
   RelayCafeTests:
     type: bundle.unit-test
