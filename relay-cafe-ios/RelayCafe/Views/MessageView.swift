@@ -26,6 +26,7 @@ struct MessageView: View {
                         Text("This message is no longer available.")
                             .font(.system(size: 19, weight: .regular))
                             .opacity(0.35)
+                            .accessibilityIdentifier("message.expiredLabel")
                         Text(" ")
                             .font(.system(size: 14))
                     } else {
@@ -36,6 +37,7 @@ struct MessageView: View {
                             .contextMenu {}
                             .opacity(appeared ? 1 : 0)
                             .animation(.easeInOut(duration: 0.6), value: appeared)
+                            .accessibilityIdentifier("message.text")
 
                         Group {
                             if translationFailed {
@@ -60,6 +62,7 @@ struct MessageView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.top, 32)
                     .padding(.bottom, 48)
+                    .accessibilityIdentifier("message.closeButton")
             }
             .padding(.horizontal, 28)
         }
@@ -73,6 +76,16 @@ struct MessageView: View {
         .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
             checkExpiration()
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.userDidTakeScreenshotNotification)) { _ in
+            guard !expired else { return }
+            withAnimation(.easeInOut(duration: 0.35)) { expired = true }
+        }
+        #if DEBUG
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("relay.simulateScreenshot"))) { _ in
+            guard !expired else { return }
+            withAnimation(.easeInOut(duration: 0.35)) { expired = true }
+        }
+        #endif
         .applyTranslationIfAvailable(
             text: message.text,
             translatedText: $translatedText,

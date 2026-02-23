@@ -47,6 +47,7 @@ struct ComposeView: View {
                 .frame(minHeight: 120)
                 .scrollContentBackground(.hidden)
                 .background(Color.clear)
+                .accessibilityIdentifier("compose.textEditor")
                 .onChange(of: text) {
                     if text.count > 1000 { text = String(text.prefix(1000)) }
                 }
@@ -56,6 +57,7 @@ struct ComposeView: View {
                     .font(.system(size: 13))
                     .opacity(0.45)
                     .padding(.top, 12)
+                    .accessibilityIdentifier("compose.errorLabel")
             }
 
             Spacer()
@@ -66,12 +68,14 @@ struct ComposeView: View {
                     Button("Done") { dismiss() }
                         .font(.system(size: 17))
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("compose.doneButton")
                 } else {
                     Button("Send") { send() }
                         .font(.system(size: 17))
                         .opacity(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.3 : 0.8)
                         .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("compose.sendButton")
                 }
             }
             .padding(.bottom, 48)
