@@ -11,6 +11,7 @@
 | 2026-02-23 | API+iOS | Dates were serialized as ISO8601 strings — fragile across platforms (fractional seconds, timezone) | Use epoch milliseconds (numbers) for all date wire formats; daily_tokens.date is BIGINT epoch day |
 | 2026-02-23 | API | Running `bun run src/app.ts` does nothing — it just exports the Hono app | Real server entry point is `src/index.ts`; `src/app.ts` is just the app factory |
 | 2026-02-23 | git | Copying a directory that contains `.git` causes git to add it as a gitlink (mode 160000) not a plain directory | Remove `.git` from the copy before `git add`, or use `git rm --cached -f` + re-add |
+| 2026-02-23 | git | Created PR targeting `main` instead of `dev`; merged directly to `main` bypassing `dev`; created feature branches from `main` instead of `dev` | `dev` is the working branch. ALWAYS: branch from `dev`, PR to `dev`. Only `dev` → `main` for releases. Never skip `dev`. |
 
 ## User Preferences
 - Apple Sign-In only (no phone verification — original IDEA.md had phone SMS but system design superseded it)
