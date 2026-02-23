@@ -1,5 +1,5 @@
 import { db } from '../../src/db'
-import { users, sessions, dailyTokens, messages, ipEvents } from '../../src/db/schema'
+import { users, sessions, dailyTokens, messages } from '../../src/db/schema'
 import { sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { createHash } from 'node:crypto'
@@ -12,7 +12,6 @@ export async function resetDB() {
   await db.delete(messages)
   await db.delete(dailyTokens)
   await db.delete(sessions)
-  await db.delete(ipEvents)
   await db.delete(users)
 }
 

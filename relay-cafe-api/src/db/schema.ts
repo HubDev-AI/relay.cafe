@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, bigint, boolean, timestamp, primaryKey, index } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, text, bigint, boolean, timestamp, primaryKey } from 'drizzle-orm/pg-core'
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -32,14 +32,3 @@ export const messages = pgTable('messages', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
 })
-
-// TODO: ipEvents is unused in application code (rate limiter uses in-memory Map).
-// Remove after Redis rate limiting migration, along with a DROP TABLE migration.
-export const ipEvents = pgTable('ip_events', {
-  ipHash: text('ip_hash').notNull(),
-  eventType: text('event_type').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => ({
-  idx: index('ip_events_ip_hash_event_type_created_at_idx')
-    .on(t.ipHash, t.eventType, t.createdAt),
-}))
