@@ -73,6 +73,16 @@ struct MessageView: View {
         .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
             checkExpiration()
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.userDidTakeScreenshotNotification)) { _ in
+            guard !expired else { return }
+            withAnimation(.easeInOut(duration: 0.35)) { expired = true }
+        }
+        #if DEBUG
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("relay.simulateScreenshot"))) { _ in
+            guard !expired else { return }
+            withAnimation(.easeInOut(duration: 0.35)) { expired = true }
+        }
+        #endif
         .applyTranslationIfAvailable(
             text: message.text,
             translatedText: $translatedText,

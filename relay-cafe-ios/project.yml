@@ -50,3 +50,4 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: cafe.relay.app.tests
         SWIFT_VERSION: "6.0"
+        GENERATE_INFOPLIST_FILE: YES
