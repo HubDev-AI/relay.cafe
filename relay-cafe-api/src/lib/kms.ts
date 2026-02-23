@@ -1,36 +1,32 @@
 import { KeyManagementServiceClient } from '@google-cloud/kms'
 
-const DEV_MODE = process.env.DEV_MODE === 'true'
-const client = DEV_MODE ? null : new KeyManagementServiceClient()
+const client = new KeyManagementServiceClient()
 
-function todayKeyVersion(): string {
-  const today = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+// Returns the CryptoKey resource name (no version suffix).
+// GCP KMS encrypt uses the primary version; decrypt resolves the version
+// automatically from the ciphertext so we only need the key name for both.
+function keyName(): string {
   return [
     `projects/${process.env.GCP_PROJECT_ID}`,
     `locations/${process.env.GCP_KMS_LOCATION}`,
     `keyRings/${process.env.GCP_KMS_KEY_RING}`,
     `cryptoKeys/${process.env.GCP_KMS_KEY_NAME}`,
-    `cryptoKeyVersions/${today}`,
   ].join('/')
 }
 
 export async function wrapKey(rawKey: Buffer): Promise<{ encryptedKey: string; keyVersion: string }> {
-  if (DEV_MODE) {
-    return { encryptedKey: rawKey.toString('base64'), keyVersion: 'dev' }
-  }
-  const keyVersion = todayKeyVersion()
-  const [result] = await client!.encrypt({ name: keyVersion, plaintext: rawKey })
+  const name = keyName()
+  const [result] = await client.encrypt({ name, plaintext: rawKey })
   return {
     encryptedKey: Buffer.from(result.ciphertext as Uint8Array).toString('base64'),
-    keyVersion,
+    keyVersion: name,
   }
 }
 
 export async function unwrapKey(encryptedKey: string, keyVersion: string): Promise<Buffer> {
-  if (DEV_MODE) {
-    return Buffer.from(encryptedKey, 'base64')
-  }
-  const [result] = await client!.decrypt({
+  // keyVersion stores the CryptoKey resource name; GCP selects the correct
+  // key version from the ciphertext automatically.
+  const [result] = await client.decrypt({
     name: keyVersion,
     ciphertext: Buffer.from(encryptedKey, 'base64'),
   })

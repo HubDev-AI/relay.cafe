@@ -48,7 +48,8 @@ messagesRouter.post('/', async (c) => {
   const { ciphertext, iv, key } = await encryptMessage(body.text)
   const { encryptedKey, keyVersion } = await wrapKey(key)
 
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
+  const ttlMs = (Number(process.env.MESSAGE_TTL_SECONDS) || 86400) * 1000
+  const expiresAt = new Date(Date.now() + ttlMs)
 
   await db.insert(messages).values({
     ciphertext,
