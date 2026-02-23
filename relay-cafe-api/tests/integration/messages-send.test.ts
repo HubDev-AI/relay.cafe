@@ -137,13 +137,13 @@ describe('POST /messages (send)', () => {
     expect(status).toBe(201)
   })
 
-  test('whitespace-only text is accepted (server stores as-is)', async () => {
+  test('whitespace-only text is rejected', async () => {
     const { status } = await requestJSON('/messages', {
       method: 'POST',
       token,
       body: { text: '   ' },
     })
-    expect(status).toBe(201)
+    expect(status).toBe(400)
   })
 
   test('emoji message works', async () => {
