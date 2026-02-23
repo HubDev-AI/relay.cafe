@@ -5,6 +5,7 @@ import { and, eq, gt, sql } from 'drizzle-orm'
 import { encryptMessage, decryptMessage } from '../lib/crypto'
 import { wrapKey, unwrapKey } from '../lib/kms'
 import { currentPeriod } from '../lib/period'
+import { captureError } from '../lib/logger'
 
 // authMiddleware is applied by app.ts when mounting this router
 export const messagesRouter = new Hono()
@@ -45,22 +46,42 @@ messagesRouter.post('/', async (c) => {
     return c.json({ error: 'Already sent today.' }, 429)
   }
 
-  // Encrypt
-  const { ciphertext, iv, key } = await encryptMessage(body.text)
-  const { encryptedKey, keyVersion } = await wrapKey(key)
+  // Encrypt + insert. If encrypt/KMS/insert fails, roll back the send token
+  // so the user doesn't lose their daily send on a server-side failure.
+  try {
+    const { ciphertext, iv, key } = await encryptMessage(body.text)
+    const { encryptedKey, keyVersion } = await wrapKey(key)
 
-  const ttlMs = (Number(process.env.MESSAGE_TTL_SECONDS) || 86400) * 1000
-  const expiresAt = new Date(Date.now() + ttlMs)
+    const ttlMs = (Number(process.env.MESSAGE_TTL_SECONDS) || 86400) * 1000
+    const expiresAt = new Date(Date.now() + ttlMs)
 
-  await db.insert(messages).values({
-    ciphertext,
-    encryptedMessageKey: encryptedKey,
-    kmsKeyVersion: keyVersion,
-    iv,
-    expiresAt,
-  })
+    await db.insert(messages).values({
+      ciphertext,
+      encryptedMessageKey: encryptedKey,
+      kmsKeyVersion: keyVersion,
+      iv,
+      expiresAt,
+    })
 
-  return c.json({ ok: true }, 201)
+    return c.json({ ok: true }, 201)
+  } catch (err) {
+    captureError(err, { route: 'POST /messages', action: 'encrypt-and-insert', userId })
+    // Roll back send token so user can retry
+    try {
+      await db
+        .update(dailyTokens)
+        .set({ sendUsed: false })
+        .where(
+          and(
+            eq(dailyTokens.userId, userId),
+            eq(dailyTokens.date, today),
+          ),
+        )
+    } catch (rollbackErr) {
+      captureError(rollbackErr, { route: 'POST /messages', action: 'send-token-rollback', userId })
+    }
+    return c.json({ error: 'Unable to send message.' }, 500)
+  }
 })
 
 messagesRouter.get('/today', async (c) => {
@@ -90,56 +111,77 @@ messagesRouter.get('/today', async (c) => {
     return c.json({ error: 'Already received today.' }, 429)
   }
 
-  // Atomically claim a random undelivered, unexpired message using
-  // a CTE with FOR UPDATE SKIP LOCKED to prevent two receivers
-  // from getting the same message.
-  const claimedMessages = await db.execute<{
-    id: string
-    ciphertext: string
-    encrypted_message_key: string
-    kms_key_version: string
-    iv: string
-    expires_at: Date
-  }>(sql`
-    WITH candidate AS (
-      SELECT id FROM messages
-      WHERE delivered = false AND expires_at > NOW()
-      ORDER BY RANDOM()
-      LIMIT 1
-      FOR UPDATE SKIP LOCKED
-    )
-    DELETE FROM messages
-    USING candidate
-    WHERE messages.id = candidate.id
-    RETURNING messages.id, messages.ciphertext,
-              messages.encrypted_message_key, messages.kms_key_version,
-              messages.iv, messages.expires_at
-  `)
+  // Transaction: lock message → decrypt → delete only on success.
+  // If decryption fails, rollback preserves the message and the
+  // receive token is rolled back outside the transaction.
+  try {
+    const result = await db.transaction(async (tx) => {
+      // Lock a random unexpired message
+      const candidates = await tx.execute<{
+        id: string
+        ciphertext: string
+        encrypted_message_key: string
+        kms_key_version: string
+        iv: string
+        expires_at: Date
+      }>(sql`
+        SELECT id, ciphertext, encrypted_message_key, kms_key_version, iv, expires_at
+        FROM messages
+        WHERE expires_at > NOW()
+        ORDER BY RANDOM()
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+      `)
 
-  const msg = claimedMessages[0]
+      const msg = candidates[0]
+      if (!msg) return null
 
-  if (!msg) {
-    // Quiet day -- no messages available. Roll back the receive token
-    // so the user can try again later.
-    await db
-      .update(dailyTokens)
-      .set({ receiveUsed: false })
-      .where(
-        and(
-          eq(dailyTokens.userId, userId),
-          eq(dailyTokens.date, today),
-        ),
-      )
-    return c.body(null, 204)
+      // Decrypt before deleting — if this fails, transaction rolls back
+      const key = await unwrapKey(msg.encrypted_message_key, msg.kms_key_version)
+      const text = await decryptMessage(msg.ciphertext, msg.iv, key)
+
+      // Decryption succeeded — now delete
+      await tx.execute(sql`DELETE FROM messages WHERE id = ${msg.id}`)
+
+      const expiresAt = msg.expires_at instanceof Date
+        ? msg.expires_at.getTime()
+        : new Date(msg.expires_at).getTime()
+
+      return { id: msg.id, text, expiresAt }
+    })
+
+    if (!result) {
+      // No messages available — roll back receive token
+      await db
+        .update(dailyTokens)
+        .set({ receiveUsed: false })
+        .where(
+          and(
+            eq(dailyTokens.userId, userId),
+            eq(dailyTokens.date, today),
+          ),
+        )
+      return c.body(null, 204)
+    }
+
+    return c.json(result)
+  } catch (err) {
+    captureError(err, { route: 'GET /messages/today', action: 'decrypt-and-deliver', userId })
+    // Decrypt or KMS failure — transaction rolled back, message preserved.
+    // Roll back receive token so user can try again.
+    try {
+      await db
+        .update(dailyTokens)
+        .set({ receiveUsed: false })
+        .where(
+          and(
+            eq(dailyTokens.userId, userId),
+            eq(dailyTokens.date, today),
+          ),
+        )
+    } catch (rollbackErr) {
+      captureError(rollbackErr, { route: 'GET /messages/today', action: 'receive-token-rollback', userId })
+    }
+    return c.json({ error: 'Unable to process message.' }, 500)
   }
-
-  // Decrypt
-  const key = await unwrapKey(msg.encrypted_message_key, msg.kms_key_version)
-  const text = await decryptMessage(msg.ciphertext, msg.iv, key)
-
-  const expiresAt = msg.expires_at instanceof Date
-    ? msg.expires_at.getTime()
-    : new Date(msg.expires_at).getTime()
-
-  return c.json({ id: msg.id, text, expiresAt })
 })

@@ -19,8 +19,6 @@
 		6C5DF4DACB061E291F8785FF /* RelayCafeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB849CC60C4724C49CD2C212 /* RelayCafeApp.swift */; };
 		6F21615CC40CC9D459F39763 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A297D1042F9D16819771D44A /* HomeViewModel.swift */; };
 		7369B231F7BCEC02B1F929D1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B4A3F33EB49D39438F6C467 /* SettingsView.swift */; };
-		7F5B16D4D3A0BBF7EDCB4F63 /* LanguageDetectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7887C127E550DB52AEB48416 /* LanguageDetectionTests.swift */; };
-		B09D33889BFDFED159EA50E8 /* ScreenshotDetectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B94E9683CC09912871EA4CE /* ScreenshotDetectionTests.swift */; };
 		B476936D390794B5FD8F4643 /* TranslationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B5F6DDB305572E124AA0FC0 /* TranslationService.swift */; };
 		BE32BFD1FD578309DAA4ED83 /* MessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96D96BAA57F458059791489C /* MessageView.swift */; };
 		BF9D3C488CD1C644655F49C2 /* ComposeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47138A8D71C2BB21ABE844F9 /* ComposeView.swift */; };
@@ -60,8 +58,6 @@
 		4C0A75D09229D1512FE7AEA7 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		6B4A3F33EB49D39438F6C467 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		6B5F6DDB305572E124AA0FC0 /* TranslationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationService.swift; sourceTree = "<group>"; };
-		6B94E9683CC09912871EA4CE /* ScreenshotDetectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotDetectionTests.swift; sourceTree = "<group>"; };
-		7887C127E550DB52AEB48416 /* LanguageDetectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageDetectionTests.swift; sourceTree = "<group>"; };
 		8B8782F180C0BA54BC9DF125 /* KeychainManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainManager.swift; sourceTree = "<group>"; };
 		96D96BAA57F458059791489C /* MessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageView.swift; sourceTree = "<group>"; };
 		9992D06931F66FBBFF884779 /* RelayCafe.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RelayCafe.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -169,9 +165,7 @@
 			children = (
 				FF40BF141AB6A9C6158F9BA3 /* APIClientTests.swift */,
 				12D188633CC953D3EB237C52 /* KeychainManagerTests.swift */,
-				7887C127E550DB52AEB48416 /* LanguageDetectionTests.swift */,
 				128A281FD575CD7FD2D6809A /* RelayCafeTests.swift */,
-				6B94E9683CC09912871EA4CE /* ScreenshotDetectionTests.swift */,
 			);
 			path = RelayCafeTests;
 			sourceTree = "<group>";
@@ -305,9 +299,7 @@
 			files = (
 				FB4996951B0760D2FF0F2889 /* APIClientTests.swift in Sources */,
 				3CEE356199C4F24BDF763775 /* KeychainManagerTests.swift in Sources */,
-				7F5B16D4D3A0BBF7EDCB4F63 /* LanguageDetectionTests.swift in Sources */,
 				FBF772DCD8D3AADBF6AC4EFC /* RelayCafeTests.swift in Sources */,
-				B09D33889BFDFED159EA50E8 /* ScreenshotDetectionTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

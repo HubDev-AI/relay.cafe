@@ -1265,3 +1265,228 @@ This forces the agent into execution mode instead of creative mode.
 
 You are the architect.
 It is the implementer.
+
+---
+
+Relay.cafe – Final Message Layout Decision 
+
+We are finalizing the received message layout.
+
+Do NOT change this in future refinements.
+
+Message Positioning Rules
+
+Horizontal alignment
+
+The received message text must be left-aligned.
+
+It must NOT be centered horizontally.
+
+Use consistent horizontal padding (24–32pt).
+
+Vertical positioning
+
+The message must NOT be perfectly vertically centered.
+
+It should sit slightly above vertical center.
+
+There should be more visual space below the message than above.
+
+Avoid mathematical symmetry.
+
+Translation hint
+
+Remains left-aligned.
+
+Positioned directly below the message.
+
+Muted/secondary styling.
+
+No visual containers or separators.
+
+Close button
+
+Centered horizontally near the bottom of the screen.
+
+Visually secondary to the message.
+
+No strong accent styling.
+
+Explicitly Avoid
+
+Centering the message horizontally.
+
+Perfect vertical centering.
+
+Card UI.
+
+Containers, borders, or decorative frames.
+
+Additional alignment adjustments for “visual balance.”
+
+Any layout changes not explicitly requested.
+
+The message screen must feel like:
+
+A written note.
+
+Human.
+
+Slightly asymmetrical.
+
+Not staged or system-generated.
+
+Preserve restraint.
+
+Relay.cafe – Final Message Layout Decision 
+
+We are finalizing the received message layout.
+
+Do NOT change this in future refinements.
+
+Message Positioning Rules
+
+Horizontal alignment
+
+The received message text must be left-aligned.
+
+It must NOT be centered horizontally.
+
+Use consistent horizontal padding (24–32pt).
+
+Vertical positioning
+
+The message must NOT be perfectly vertically centered.
+
+It should sit slightly above vertical center.
+
+There should be more visual space below the message than above.
+
+Avoid mathematical symmetry.
+
+Translation hint
+
+Remains left-aligned.
+
+Positioned directly below the message.
+
+Muted/secondary styling.
+
+No visual containers or separators.
+
+Close button
+
+Centered horizontally near the bottom of the screen.
+
+Visually secondary to the message.
+
+No strong accent styling.
+
+Explicitly Avoid
+
+Centering the message horizontally.
+
+Perfect vertical centering.
+
+Card UI.
+
+Containers, borders, or decorative frames.
+
+Additional alignment adjustments for “visual balance.”
+
+Any layout changes not explicitly requested.
+
+The message screen must feel like:
+
+A written note.
+
+Human.
+
+Slightly asymmetrical.
+
+Not staged or system-generated.
+
+Preserve restraint.
+
+Good. Keep this tight and decisive.
+
+Send this to the agent:
+
+---
+
+### Relay.cafe – Critical Fix: KMS Retention + Receive Atomicity
+
+We are fixing two correctness issues.
+
+Do not propose alternatives. Implement exactly as specified.
+
+---
+
+## 1. KMS Key Retention Policy
+
+Key destruction at 26h is incorrect.
+
+Requirement:
+
+```
+key_retention >= MESSAGE_TTL + key_rotation_period + safety_buffer
+```
+
+For production:
+
+* MESSAGE_TTL = 24h
+* rotation_period = 24h
+* safety_buffer = 2h
+
+Therefore:
+
+* Minimum key retention = 50 hours.
+
+Update key lifecycle logic so old key versions are NOT destroyed before 50 hours.
+
+Do not reduce this.
+
+---
+
+## 2. Receive Flow Must Be Atomic
+
+Current behavior deletes message before decryption. This is incorrect.
+
+Fix the receive flow:
+
+* Begin DB transaction.
+* SELECT message FOR UPDATE SKIP LOCKED.
+* Attempt unwrapKey.
+* Attempt decryptMessage.
+* Only if both succeed:
+
+  * DELETE the message.
+  * Mark receiveUsed = true.
+  * COMMIT.
+* If unwrap or decrypt fails:
+
+  * ROLLBACK.
+  * Do NOT delete message.
+  * Do NOT consume receive token.
+  * Return 500.
+
+Deletion must depend on successful decryption.
+
+---
+
+## 3. Do NOT:
+
+* Delete message before decrypt.
+* Consume receive token before successful decrypt.
+* Destroy KMS keys earlier than required retention window.
+
+These are correctness guarantees.
+
+Implement only these fixes.
+
+---
+
+That keeps it minimal and unambiguous.
+
+This is a real integrity fix — not feature creep.
+

@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm'
 import { verifyAppleToken } from '../lib/appleAuth'
 import { authMiddleware } from '../middleware/auth'
 import { ipRateLimit } from '../middleware/rateLimit'
+import { captureError } from '../lib/logger'
 
 export const authRouter = new Hono()
 
@@ -26,7 +27,8 @@ authRouter.post(
     let claims
     try {
       claims = await verifyAppleToken(body.identityToken)
-    } catch {
+    } catch (err) {
+      captureError(err, { route: 'POST /auth/apple', action: 'verify-apple-token' })
       return c.json({ error: 'Unauthorized' }, 401)
     }
 
@@ -34,28 +36,33 @@ authRouter.post(
       .update(APPLE_ID_SALT + claims.sub)
       .digest('hex')
 
-    // Upsert user
-    const [existingUser] = await db.select().from(users).where(eq(users.appleIdHash, appleIdHash)).limit(1)
-    const user = existingUser ?? (await db.insert(users).values({ appleIdHash }).returning())[0]
-    if (!user) {
-      return c.json({ error: 'Failed to create user' }, 500)
-    }
+    // Transaction: upsert user + create session atomically.
+    // Prevents race where concurrent sign-ins create orphaned rows or
+    // hit unique-constraint errors instead of gracefully reusing the user.
+    const result = await db.transaction(async (tx) => {
+      const [existingUser] = await tx.select().from(users).where(eq(users.appleIdHash, appleIdHash)).limit(1)
+      const user = existingUser ?? (await tx.insert(users).values({ appleIdHash }).returning())[0]
+      if (!user) return null
 
-    // Create session (30 days)
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-    const session = (await db
-      .insert(sessions)
-      .values({
-        userId: user.id,
-        expiresAt,
-        deviceFingerprint: body.deviceFingerprint ?? null,
-      })
-      .returning())[0]
-    if (!session) {
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      const [session] = await tx
+        .insert(sessions)
+        .values({
+          userId: user.id,
+          expiresAt,
+          deviceFingerprint: body.deviceFingerprint ?? null,
+        })
+        .returning()
+      if (!session) return null
+
+      return { sessionToken: session.id, expiresAt: expiresAt.getTime() }
+    })
+
+    if (!result) {
       return c.json({ error: 'Failed to create session' }, 500)
     }
 
-    return c.json({ sessionToken: session.id, expiresAt: expiresAt.getTime() })
+    return c.json(result)
   }
 )
 

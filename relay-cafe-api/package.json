@@ -15,6 +15,7 @@
   "dependencies": {
     "@google-cloud/kms": "^5.4.0",
     "@hono/node-server": "^1.19.9",
+    "@sentry/bun": "^10.39.0",
     "drizzle-orm": "^0.45.1",
     "hono": "^4.12.1",
     "jose": "^6.1.3",
