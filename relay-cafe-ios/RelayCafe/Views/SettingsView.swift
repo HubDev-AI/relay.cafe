@@ -23,6 +23,7 @@ struct SettingsView: View {
                         .font(.system(size: 17))
                         .opacity(0.5)
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("settings.deleteButton")
 
                         Text("Your account and data will be permanently removed.")
                             .font(.system(size: 13))
@@ -65,6 +66,7 @@ struct SettingsView: View {
                 .font(.system(size: 17))
                 .opacity(0.5)
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("settings.cancelButton")
 
                 Button("Delete account") {
                     Task { await deleteAccount() }
@@ -73,6 +75,7 @@ struct SettingsView: View {
                 .opacity(isDeleting ? 0.3 : 0.7)
                 .disabled(isDeleting)
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("settings.confirmDeleteButton")
             }
         }
     }
