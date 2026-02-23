@@ -2,15 +2,27 @@
 
 ## Repo Structure
 
-Monorepo with two subdirectories:
+Monorepo with three subdirectories:
 - `relay-cafe-api/` — Hono + Bun backend API
 - `relay-cafe-ios/` — SwiftUI iOS app
+- `relay-cafe-site/` — Static landing page (HTML/CSS, no JS, no build step)
+
+Other directories:
+- `docs/landing/` — Landing page specs and icon source assets (PAGE.md, TERMS.md, images)
+- `docs/plans/` — Implementation plans and design documents
+- `docs/marketing/` — Marketing strategy
 
 ## Git Workflow
 
+**Branches:**
 - `main` — production-ready, PR-only merges, no force push, no deletion
-- `dev` — integration branch, PR-only merges, no force push, no deletion
-- Feature branches: `feature/<name>`, merge to `dev` via PR, then `dev` → `main`
+- `dev` — integration branch, PR-only merges, no force push, no deletion. **This is the working branch.**
+- Feature branches: `feature/<name>`, created from `dev`, merge back to `dev` via PR
+
+**Flow:** `feature/*` → PR → `dev` → PR → `main`. Never skip `dev`. Never push directly to `dev` or `main` (both are protected).
+
+**When creating a new feature branch:** Always branch from `dev`, not `main`.
+**When creating a PR:** Always target `dev`, unless explicitly told to target `main`.
 
 Remote: `git@github.com:HubDev-AI/relay.cafe.git`
 
