@@ -160,4 +160,60 @@ describe('GET /messages/today (receive)', () => {
     const remaining = await db.select().from(messages)
     expect(remaining.length).toBe(2)
   })
+
+  test('full send → receive → delete e2e flow', async () => {
+    const sender = await createAuthenticatedUser()
+    const receiver = await createAuthenticatedUser()
+
+    const sentText = 'e2e-test-message-' + Date.now()
+    const sendRes = await requestJSON('/messages', {
+      method: 'POST',
+      token: sender.token,
+      body: { text: sentText },
+    })
+    expect(sendRes.status).toBe(201)
+
+    const { status, json } = await requestJSON<{ id: string; text: string; expiresAt: number }>('/messages/today', {
+      token: receiver.token,
+    })
+    expect(status).toBe(200)
+    expect(json!.text).toBe(sentText)
+
+    const remaining = await db.select().from(messages)
+    expect(remaining.length).toBe(0)
+  })
+
+  test('expired message receive rolls back token — receiveUsed stays false', async () => {
+    await createMessage({ expiresInMs: -1000 })
+    const receiver = await createAuthenticatedUser()
+
+    const res = await request('/messages/today', { token: receiver.token })
+    expect(res.status).toBe(204)
+
+    const today = currentPeriod()
+    const [tok] = await db.select().from(dailyTokens).where(
+      and(eq(dailyTokens.userId, receiver.userId), eq(dailyTokens.date, today))
+    ).limit(1)
+    expect(tok!.receiveUsed).toBe(false)
+  })
+
+  test('send then receive own message (single user)', async () => {
+    const user = await createAuthenticatedUser()
+
+    const sentText = 'self-loop-' + Date.now()
+    await requestJSON('/messages', {
+      method: 'POST',
+      token: user.token,
+      body: { text: sentText },
+    })
+
+    const { status, json } = await requestJSON<{ text: string }>('/messages/today', {
+      token: user.token,
+    })
+    expect(status).toBe(200)
+    expect(json!.text).toBe(sentText)
+
+    const remaining = await db.select().from(messages)
+    expect(remaining.length).toBe(0)
+  })
 })
