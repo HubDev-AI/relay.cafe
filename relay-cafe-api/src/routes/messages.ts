@@ -12,7 +12,7 @@ export const messagesRouter = new Hono()
 
 messagesRouter.post('/', async (c) => {
   const body = await c.req.json().catch(() => null)
-  if (!body?.text || typeof body.text !== 'string') {
+  if (!body?.text || typeof body.text !== 'string' || body.text.trim().length === 0) {
     return c.json({ error: 'text required' }, 400)
   }
   if (body.text.length > 1000) {

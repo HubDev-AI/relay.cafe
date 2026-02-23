@@ -18,6 +18,14 @@ app.notFound((c) => {
   return c.json({ error: 'Not found' }, 404)
 })
 
+app.use('*', async (c, next) => {
+  await next()
+  c.header('Strict-Transport-Security', 'max-age=63072000; includeSubDomains')
+  c.header('X-Content-Type-Options', 'nosniff')
+  c.header('X-Frame-Options', 'DENY')
+  c.header('Cache-Control', 'no-store')
+})
+
 app.get('/health', async (c) => {
   try {
     await db.execute(sql`SELECT 1`)
