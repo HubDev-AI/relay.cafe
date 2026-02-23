@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AA000001AAAA000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000002AAAA000000000002 /* Assets.xcassets */; };
 		013C1B261F1C5D85E65E374C /* RelayCafeUITestCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01E1AD71C06F97018B7C3874 /* RelayCafeUITestCase.swift */; };
 		1C5E674DB937553115365798 /* FarewellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE02259C4EC6737381B0371 /* FarewellView.swift */; };
 		264147936A39108BF48EDC25 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35E5FF7CF17B4C931F0FAD8D /* HomeView.swift */; };
@@ -72,6 +73,7 @@
 		F2C436ED1C2779F479868161 /* OnboardingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingUITests.swift; sourceTree = "<group>"; };
 		FDE02259C4EC6737381B0371 /* FarewellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FarewellView.swift; sourceTree = "<group>"; };
 		FF40BF141AB6A9C6158F9BA3 /* APIClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClientTests.swift; sourceTree = "<group>"; };
+		AA000002AAAA000000000002 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -115,6 +117,7 @@
 			isa = PBXGroup;
 			children = (
 				B94E2070305CBA3B85B13632 /* App */,
+				AA000002AAAA000000000002 /* Assets.xcassets */,
 				1770850F60B04BF3E1CA6DB1 /* Services */,
 				B05945CD53A0E1B03396A87D /* ViewModels */,
 				2CF3299E0FF138E281A0412E /* Views */,
@@ -214,6 +217,7 @@
 			buildConfigurationList = D7EB150048DB3B58CF72F96B /* Build configuration list for PBXNativeTarget "RelayCafe" */;
 			buildPhases = (
 				CC4E9C9898DAB9B826E55C1D /* Sources */,
+				AA000003AAAA000000000003 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -304,6 +308,17 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AA000003AAAA000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000001AAAA000000000001 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
 		742BE13B867B4C7250ACAD66 /* PBXTargetDependency */ = {

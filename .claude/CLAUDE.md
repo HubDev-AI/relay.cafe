@@ -40,13 +40,16 @@ Remote: `git@github.com:HubDev-AI/relay.cafe.git`
 ```
 DATABASE_URL=
 GCP_PROJECT_ID=
-KMS_LOCATION=
-KMS_KEYRING=
-KMS_KEY=
-APPLE_TEAM_ID=
-APPLE_CLIENT_ID=
+GCP_KMS_LOCATION=
+GCP_KMS_KEY_RING=
+GCP_KMS_KEY_NAME=
+GOOGLE_APPLICATION_CREDENTIALS=
+APPLE_BUNDLE_ID=
+APPLE_ID_SALT=
+SESSION_SALT=
 MESSAGE_TTL_SECONDS=86400        # production: 86400, testing: 300
 TOKEN_PERIOD_SECONDS=86400       # production: 86400, testing: 300
+SENTRY_DSN=                      # optional
 ```
 
 Copy `.env.example` to `.env` — never commit `.env`.

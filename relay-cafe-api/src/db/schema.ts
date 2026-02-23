@@ -33,6 +33,8 @@ export const messages = pgTable('messages', {
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
 })
 
+// TODO: ipEvents is unused in application code (rate limiter uses in-memory Map).
+// Remove after Redis rate limiting migration, along with a DROP TABLE migration.
 export const ipEvents = pgTable('ip_events', {
   ipHash: text('ip_hash').notNull(),
   eventType: text('event_type').notNull(),
