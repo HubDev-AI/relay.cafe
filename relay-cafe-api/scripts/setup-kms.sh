@@ -6,8 +6,7 @@
 #   24h + 24h + 2h = 50h minimum
 #
 # GCP enforces: destroy-scheduled-duration >= 24h (default 30 days).
-# We set it to 72h (3 days) — comfortably above the 50h minimum while
-# still cleaning up old versions in a reasonable window.
+# We set it to 50h — the minimum safe retention for this system.
 #
 # Rotation period: 24h — one primary version per day.
 #
@@ -22,7 +21,7 @@ KEY_RING="${GCP_KMS_KEY_RING:?Set GCP_KMS_KEY_RING}"
 KEY_NAME="${GCP_KMS_KEY_NAME:?Set GCP_KMS_KEY_NAME}"
 
 ROTATION_PERIOD="86400s"           # 24 hours
-DESTROY_SCHEDULED_DURATION="259200s"  # 72 hours (50h minimum, 72h for safety)
+DESTROY_SCHEDULED_DURATION="180000s"  # 50 hours
 
 echo "=== relay.cafe KMS Key Setup ==="
 echo "Project:   $PROJECT_ID"
@@ -30,7 +29,7 @@ echo "Location:  $LOCATION"
 echo "Key Ring:  $KEY_RING"
 echo "Key:       $KEY_NAME"
 echo "Rotation:  24h"
-echo "Destroy delay: 72h (minimum required: 50h)"
+echo "Destroy delay: 50h"
 echo ""
 
 # Create key ring (idempotent — errors if exists, that's fine)

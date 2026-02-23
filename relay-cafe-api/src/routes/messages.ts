@@ -5,6 +5,7 @@ import { and, eq, gt, sql } from 'drizzle-orm'
 import { encryptMessage, decryptMessage } from '../lib/crypto'
 import { wrapKey, unwrapKey } from '../lib/kms'
 import { currentPeriod } from '../lib/period'
+import { captureError } from '../lib/logger'
 
 // authMiddleware is applied by app.ts when mounting this router
 export const messagesRouter = new Hono()
@@ -63,17 +64,22 @@ messagesRouter.post('/', async (c) => {
     })
 
     return c.json({ ok: true }, 201)
-  } catch {
+  } catch (err) {
+    captureError(err, { route: 'POST /messages', action: 'encrypt-and-insert', userId })
     // Roll back send token so user can retry
-    await db
-      .update(dailyTokens)
-      .set({ sendUsed: false })
-      .where(
-        and(
-          eq(dailyTokens.userId, userId),
-          eq(dailyTokens.date, today),
-        ),
-      )
+    try {
+      await db
+        .update(dailyTokens)
+        .set({ sendUsed: false })
+        .where(
+          and(
+            eq(dailyTokens.userId, userId),
+            eq(dailyTokens.date, today),
+          ),
+        )
+    } catch (rollbackErr) {
+      captureError(rollbackErr, { route: 'POST /messages', action: 'send-token-rollback', userId })
+    }
     return c.json({ error: 'Unable to send message.' }, 500)
   }
 })
@@ -121,7 +127,7 @@ messagesRouter.get('/today', async (c) => {
       }>(sql`
         SELECT id, ciphertext, encrypted_message_key, kms_key_version, iv, expires_at
         FROM messages
-        WHERE delivered = false AND expires_at > NOW()
+        WHERE expires_at > NOW()
         ORDER BY RANDOM()
         LIMIT 1
         FOR UPDATE SKIP LOCKED
@@ -159,18 +165,23 @@ messagesRouter.get('/today', async (c) => {
     }
 
     return c.json(result)
-  } catch {
+  } catch (err) {
+    captureError(err, { route: 'GET /messages/today', action: 'decrypt-and-deliver', userId })
     // Decrypt or KMS failure — transaction rolled back, message preserved.
     // Roll back receive token so user can try again.
-    await db
-      .update(dailyTokens)
-      .set({ receiveUsed: false })
-      .where(
-        and(
-          eq(dailyTokens.userId, userId),
-          eq(dailyTokens.date, today),
-        ),
-      )
+    try {
+      await db
+        .update(dailyTokens)
+        .set({ receiveUsed: false })
+        .where(
+          and(
+            eq(dailyTokens.userId, userId),
+            eq(dailyTokens.date, today),
+          ),
+        )
+    } catch (rollbackErr) {
+      captureError(rollbackErr, { route: 'GET /messages/today', action: 'receive-token-rollback', userId })
+    }
     return c.json({ error: 'Unable to process message.' }, 500)
   }
 })

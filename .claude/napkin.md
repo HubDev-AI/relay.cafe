@@ -18,6 +18,9 @@
 - iOS 17.0 minimum (required for Translation.framework)
 - No haptics, no sound, no bounce, no spring anywhere in the app
 
+## Final Decisions (LOCKED — do not change)
+- **Message layout**: left-aligned, NOT horizontally centered. Slightly ABOVE vertical center (1 spacer above, 2 below). More space below than above. No cards, no containers, no borders, no frames. Translation hint: left-aligned below message, muted. Close button: centered horizontally near bottom, visually secondary. Feels like a handwritten note — human, slightly asymmetrical, not staged.
+
 ## Patterns That Work
 - Drizzle ORM with `postgres` driver for Hono/Bun API
 - `jose` for Apple JWT verification against Apple's JWKS
@@ -26,6 +29,7 @@
 - `actor APIClient` for thread-safe token management in Swift
 
 ## Patterns That Don't Work
+- KMS key had no `rotationPeriod` set — config test caught it; always verify infra config with assertions, not assumptions
 
 ## Domain Notes
 - Monorepo at `relay.cafe/` with `relay-cafe-api/` and `relay-cafe-ios/` subdirectories; remote: `git@github.com:HubDev-AI/relay.cafe.git`
@@ -34,6 +38,6 @@
 - Messages hard-deleted immediately on delivery; never marked delivered first
 - Receive token NOT consumed if pool is empty (204 without token consumption)
 - `devices fingerprint = hash(deviceModel + osVersion + appVersion)` — soft signal only
-- KMS: one key version per UTC day, previous version destroyed at 26h
+- KMS: auto-rotation every 24h (`rotationPeriod: 86400s`), `destroyScheduledDuration: 2592000s` (30 days), SA needs `cloudkms.admin` on key for rotation tests
 - `Translation.framework` requires iOS 17.4+ for `text.translated()` API
 - All UI copy: no exclamation marks, no emojis, no urgency, no technical detail

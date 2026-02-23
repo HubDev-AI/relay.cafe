@@ -41,7 +41,7 @@ describe('POST /messages (send)', () => {
     expect(allMessages[0].iv.length).toBeGreaterThan(0)
     expect(allMessages[0].encryptedMessageKey.length).toBeGreaterThan(0)
     expect(allMessages[0].kmsKeyVersion.length).toBeGreaterThan(0)
-    expect(allMessages[0].delivered).toBe(false)
+
   })
 
   test('send marks sendUsed=true in daily tokens', async () => {

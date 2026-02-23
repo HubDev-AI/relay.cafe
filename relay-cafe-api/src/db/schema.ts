@@ -31,7 +31,6 @@ export const messages = pgTable('messages', {
   iv: text('iv').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-  delivered: boolean('delivered').notNull().default(false),
 })
 
 export const ipEvents = pgTable('ip_events', {
