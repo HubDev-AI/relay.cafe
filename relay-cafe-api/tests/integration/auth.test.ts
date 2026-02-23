@@ -161,3 +161,28 @@ describe('POST /v1/auth/apple rate limiting', () => {
     expect(status).toBe(200)
   })
 })
+
+describe('unversioned routes return 404', () => {
+  test('GET /messages/today returns 404', async () => {
+    const { status } = await requestJSON('/messages/today')
+    expect(status).toBe(404)
+  })
+
+  test('GET /me/status returns 404', async () => {
+    const { status } = await requestJSON('/me/status')
+    expect(status).toBe(404)
+  })
+
+  test('POST /auth/apple returns 404', async () => {
+    const { status } = await requestJSON('/auth/apple', {
+      method: 'POST',
+      body: { identityToken: 'test' },
+    })
+    expect(status).toBe(404)
+  })
+
+  test('GET /health still works at root', async () => {
+    const { status } = await requestJSON('/health')
+    expect(status).toBe(200)
+  })
+})
