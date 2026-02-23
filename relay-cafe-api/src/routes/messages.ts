@@ -45,22 +45,37 @@ messagesRouter.post('/', async (c) => {
     return c.json({ error: 'Already sent today.' }, 429)
   }
 
-  // Encrypt
-  const { ciphertext, iv, key } = await encryptMessage(body.text)
-  const { encryptedKey, keyVersion } = await wrapKey(key)
+  // Encrypt + insert. If encrypt/KMS/insert fails, roll back the send token
+  // so the user doesn't lose their daily send on a server-side failure.
+  try {
+    const { ciphertext, iv, key } = await encryptMessage(body.text)
+    const { encryptedKey, keyVersion } = await wrapKey(key)
 
-  const ttlMs = (Number(process.env.MESSAGE_TTL_SECONDS) || 86400) * 1000
-  const expiresAt = new Date(Date.now() + ttlMs)
+    const ttlMs = (Number(process.env.MESSAGE_TTL_SECONDS) || 86400) * 1000
+    const expiresAt = new Date(Date.now() + ttlMs)
 
-  await db.insert(messages).values({
-    ciphertext,
-    encryptedMessageKey: encryptedKey,
-    kmsKeyVersion: keyVersion,
-    iv,
-    expiresAt,
-  })
+    await db.insert(messages).values({
+      ciphertext,
+      encryptedMessageKey: encryptedKey,
+      kmsKeyVersion: keyVersion,
+      iv,
+      expiresAt,
+    })
 
-  return c.json({ ok: true }, 201)
+    return c.json({ ok: true }, 201)
+  } catch {
+    // Roll back send token so user can retry
+    await db
+      .update(dailyTokens)
+      .set({ sendUsed: false })
+      .where(
+        and(
+          eq(dailyTokens.userId, userId),
+          eq(dailyTokens.date, today),
+        ),
+      )
+    return c.json({ error: 'Unable to send message.' }, 500)
+  }
 })
 
 messagesRouter.get('/today', async (c) => {
