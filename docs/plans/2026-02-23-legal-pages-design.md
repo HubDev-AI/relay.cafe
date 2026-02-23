@@ -7,7 +7,7 @@ Two static legal pages (Terms of Use + Privacy Policy) for relay.cafe. Required 
 ## Files
 
 ```
-docs/landing/
+relay-cafe-site/
   terms.html       (Terms of Use)
   privacy.html     (Privacy Policy)
   legal.css        (shared styles for both)
