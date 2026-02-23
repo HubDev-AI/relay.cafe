@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm'
 import { verifyAppleToken } from '../lib/appleAuth'
 import { authMiddleware } from '../middleware/auth'
 import { ipRateLimit } from '../middleware/rateLimit'
+import { captureError } from '../lib/logger'
 
 export const authRouter = new Hono()
 
@@ -26,7 +27,8 @@ authRouter.post(
     let claims
     try {
       claims = await verifyAppleToken(body.identityToken)
-    } catch {
+    } catch (err) {
+      captureError(err, { route: 'POST /auth/apple', action: 'verify-apple-token' })
       return c.json({ error: 'Unauthorized' }, 401)
     }
 
