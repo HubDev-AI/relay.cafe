@@ -35,8 +35,7 @@ struct MessageView: View {
                         Text(displayText)
                             .font(.system(size: 19, weight: .regular))
                             .lineSpacing(8)
-                            .textSelection(.disabled)
-                            .contextMenu {}
+                            .textSelection(.enabled)
                             .opacity(appeared ? 1 : 0)
                             .animation(.easeInOut(duration: 0.6), value: appeared)
                             .accessibilityIdentifier("message.text")
