@@ -9,12 +9,17 @@ import { ipRateLimit } from '../middleware/rateLimit'
 
 export const authRouter = new Hono()
 
+const APPLE_ID_SALT = process.env.APPLE_ID_SALT
+if (!APPLE_ID_SALT) {
+  throw new Error('APPLE_ID_SALT environment variable is required')
+}
+
 authRouter.post(
   '/apple',
   ipRateLimit({ maxRequests: 5, windowMs: 60 * 60 * 1000 }),
   async (c) => {
     const body = await c.req.json().catch(() => null)
-    if (!body?.identityToken) {
+    if (!body?.identityToken || typeof body.identityToken !== 'string') {
       return c.json({ error: 'identityToken required' }, 400)
     }
 
@@ -26,25 +31,29 @@ authRouter.post(
     }
 
     const appleIdHash = createHash('sha256')
-      .update(process.env.APPLE_ID_SALT + claims.sub)
+      .update(APPLE_ID_SALT + claims.sub)
       .digest('hex')
 
     // Upsert user
-    let [user] = await db.select().from(users).where(eq(users.appleIdHash, appleIdHash)).limit(1)
+    const [existingUser] = await db.select().from(users).where(eq(users.appleIdHash, appleIdHash)).limit(1)
+    const user = existingUser ?? (await db.insert(users).values({ appleIdHash }).returning())[0]
     if (!user) {
-      ;[user] = await db.insert(users).values({ appleIdHash }).returning()
+      return c.json({ error: 'Failed to create user' }, 500)
     }
 
     // Create session (30 days)
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-    const [session] = await db
+    const session = (await db
       .insert(sessions)
       .values({
         userId: user.id,
         expiresAt,
         deviceFingerprint: body.deviceFingerprint ?? null,
       })
-      .returning()
+      .returning())[0]
+    if (!session) {
+      return c.json({ error: 'Failed to create session' }, 500)
+    }
 
     return c.json({ sessionToken: session.id, expiresAt: expiresAt.toISOString() })
   }
