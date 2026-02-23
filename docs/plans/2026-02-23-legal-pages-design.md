@@ -16,19 +16,22 @@ docs/landing/
 
 ## Content
 
-### Terms of Use (9 sections)
+### Terms of Use (12 sections)
 
 Last updated: February 23, 2026
 
 1. **The Service** — what Relay does, "as is" and "as available", no delivery guarantees
-2. **User Conduct** — prohibited uses (illegal activity, threats, harassment, reverse engineering, automation)
-3. **Content Disclaimer** — user-generated anonymous content, no review/endorsement/verification by Relay
-4. **No Warranty** — no guarantees of availability, delivery, or error-free operation
-5. **Limitation of Liability** — not liable for indirect/consequential damages, emotional distress, data loss; sole remedy is to stop using service
-6. **Account Suspension & Termination** — may suspend/terminate without notice
-7. **Legal Compliance** — may comply with valid legal requests; messages auto-deleted after 24h, cannot provide what doesn't exist
-8. **Governing Law** — laws of Republic of Bulgaria, competent courts of Bulgaria
-9. **Contact** — hello@relay.cafe
+2. **Eligibility** — must be at least 16 years old (GDPR minimum age)
+3. **User Conduct** — prohibited uses (illegal activity, threats, harassment, reverse engineering, automation)
+4. **Content Disclaimer** — user-generated anonymous content, no review/endorsement/verification by Relay
+5. **Intellectual Property** — users retain rights to their messages, Relay processes only for relay purposes, no ownership claim
+6. **No Warranty** — no guarantees of availability, delivery, or error-free operation
+7. **Limitation of Liability** — not liable for indirect/consequential damages, emotional distress, data loss; sole remedy is to stop using service
+8. **Account Suspension & Termination** — may suspend/terminate without notice
+9. **Legal Compliance** — may comply with valid legal requests; messages auto-deleted after 24h, cannot provide what doesn't exist
+10. **Privacy** — link to Privacy Policy, summary of what we collect and don't store
+11. **Governing Law** — laws of Republic of Bulgaria, competent courts of Bulgaria
+12. **Contact** — hello@relay.cafe
 
 ### Privacy Policy (7 sections)
 
@@ -100,10 +103,21 @@ Three links separated by middot separators.
 - Legal pages → back to home via "relay.cafe" link at top
 - URL paths: `/terms` → `terms.html`, `/privacy` → `privacy.html` (CDN rewrite rules or directory structure)
 
+## iOS App Changes
+
+Add Terms of Use and Privacy Policy links to SettingsView.swift:
+
+- Two links below the "Delete account" section
+- Open in SFSafariViewController (in-app browser)
+- Small, muted style — consistent with existing Settings tone
+- URLs: `https://relay.cafe/terms` and `https://relay.cafe/privacy`
+
+No other app changes needed. No consent banner, no onboarding gate, no warning banners.
+
 ## Non-Goals
 
 - No cookie banner (no cookies used beyond session)
 - No consent management platform
-- No age verification gate
+- No age verification gate (age requirement stated in Terms only)
 - No monetization/payment terms
 - No arbitration clause
