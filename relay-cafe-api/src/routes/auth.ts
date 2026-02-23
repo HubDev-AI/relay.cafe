@@ -5,7 +5,8 @@ import { users, sessions } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { verifyAppleToken } from '../lib/appleAuth'
 import { authMiddleware } from '../middleware/auth'
-import { ipRateLimit } from '../middleware/rateLimit'
+import { createRateLimitMiddleware } from '../middleware/rateLimit'
+import { rateLimiter } from '../lib/container'
 import { captureError } from '../lib/logger'
 
 export const authRouter = new Hono()
@@ -17,7 +18,7 @@ if (!APPLE_ID_SALT) {
 
 authRouter.post(
   '/apple',
-  ipRateLimit({ maxRequests: 5, windowMs: 60 * 60 * 1000 }),
+  createRateLimitMiddleware(rateLimiter, 'auth'),
   async (c) => {
     const body = await c.req.json().catch(() => null)
     if (!body?.identityToken || typeof body.identityToken !== 'string') {
