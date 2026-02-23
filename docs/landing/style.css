@@ -1,0 +1,133 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 400;
+  line-height: 1.7;
+  color: #111;
+  background: #FAF9F6;
+}
+
+h1 {
+  font-size: 2.5rem;
+  font-weight: 400;
+  line-height: 1.2;
+  margin-bottom: 2rem;
+}
+
+h2 {
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.4;
+  margin-bottom: 1.5rem;
+}
+
+p {
+  font-size: 1.1rem;
+}
+
+a {
+  color: #111;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+a:hover {
+  opacity: 0.6;
+}
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 20vh 24px 4rem;
+}
+
+section {
+  margin-bottom: 7rem;
+}
+
+section p + p {
+  margin-top: 1.5rem;
+}
+
+footer {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 4rem 24px 3rem;
+  border-top: 1px solid rgba(17, 17, 17, 0.1);
+}
+
+.tagline {
+  font-size: 1.2rem;
+  line-height: 1.8;
+  margin-bottom: 1.5rem;
+}
+
+.cta {
+  margin-top: 2.5rem;
+  font-size: 0.95rem;
+  color: rgba(17, 17, 17, 0.55);
+  letter-spacing: 0.02em;
+}
+
+.privacy p {
+  font-size: 0.95rem;
+  color: rgba(17, 17, 17, 0.55);
+}
+
+.privacy h2 {
+  font-size: 1.1rem;
+}
+
+.footer-name {
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.footer-tagline {
+  font-size: 0.875rem;
+  color: rgba(17, 17, 17, 0.55);
+  margin-bottom: 1.5rem;
+}
+
+footer nav {
+  font-size: 0.875rem;
+}
+
+footer nav a {
+  color: rgba(17, 17, 17, 0.55);
+}
+
+.sep {
+  margin: 0 0.5rem;
+  color: rgba(17, 17, 17, 0.3);
+}
+
+@media (min-width: 640px) {
+  main {
+    padding: 20vh 32px 4rem;
+  }
+
+  footer {
+    padding: 4rem 32px 3rem;
+  }
+
+  h1 {
+    font-size: 2.75rem;
+  }
+
+  .tagline {
+    font-size: 1.3rem;
+  }
+}
