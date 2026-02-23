@@ -192,7 +192,7 @@ actor APIClient {
         } catch {
             throw APIError.networkError(error)
         }
-        try validate(response, data: data)
+        try validate(response, data: data, allow204: true)
     }
 
     private func attachAuth(_ req: inout URLRequest) throws {
@@ -206,12 +206,13 @@ actor APIClient {
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
     }
 
-    private func validate(_ response: URLResponse, data: Data) throws {
+    private func validate(_ response: URLResponse, data: Data, allow204: Bool = false) throws {
         guard let http = response as? HTTPURLResponse else {
             throw APIError.serverError(-1)
         }
         switch http.statusCode {
         case 200...203: return
+        case 204 where allow204: return
         case 204: throw APIError.noMessage
         case 401: throw APIError.unauthorized
         case 429: throw APIError.alreadyUsedToday
