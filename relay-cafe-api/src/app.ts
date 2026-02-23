@@ -4,6 +4,8 @@ import { authRouter } from './routes/auth'
 import { meRouter } from './routes/me'
 import { messagesRouter } from './routes/messages'
 import { authMiddleware } from './middleware/auth'
+import { createRateLimitMiddleware } from './middleware/rateLimit'
+import { rateLimiter } from './lib/container'
 import { db } from './db'
 import { captureError } from './lib/logger'
 
@@ -25,6 +27,8 @@ app.use('*', async (c, next) => {
   c.header('X-Frame-Options', 'DENY')
   c.header('Cache-Control', 'no-store')
 })
+
+app.use('*', createRateLimitMiddleware(rateLimiter, 'global'))
 
 app.get('/health', async (c) => {
   try {

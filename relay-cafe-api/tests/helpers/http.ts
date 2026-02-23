@@ -33,7 +33,7 @@ export async function request(path: string, opts: RequestOpts = {}) {
   if (ip) {
     ;(init.headers as Record<string, string>)['X-Forwarded-For'] = ip
   } else {
-    ;(init.headers as Record<string, string>)['X-Forwarded-For'] = `10.0.0.${Math.floor(Math.random() * 250) + 1}`
+    ;(init.headers as Record<string, string>)['X-Forwarded-For'] = `10.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}`
   }
 
   const url = `http://localhost${path}`
