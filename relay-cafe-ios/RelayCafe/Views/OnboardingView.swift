@@ -39,8 +39,13 @@ struct OnboardingView: View {
                         .opacity(0.7)
                 }
                 .buttonStyle(.plain)
-                .padding(.bottom, 48)
                 .accessibilityIdentifier("onboarding.continueButton")
+
+                Text("By continuing, you agree to the Terms of Use and Privacy Policy.")
+                    .font(.system(size: 11))
+                    .opacity(0.3)
+                    .padding(.top, 12)
+                    .padding(.bottom, 32)
             }
             .padding(.horizontal, 28)
             .frame(maxWidth: .infinity, alignment: .leading)

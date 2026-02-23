@@ -1,10 +1,12 @@
 import SwiftUI
+import SafariServices
 
 struct SettingsView: View {
     let appVM: AppViewModel
     @State private var showDeleteConfirm = false
     @State private var isDeleting = false
     @State private var deleteError: String?
+    @State private var safariURL: URL?
 
     var body: some View {
         ZStack {
@@ -33,10 +35,33 @@ struct SettingsView: View {
                 }
 
                 Spacer()
+
+                VStack(spacing: 16) {
+                    Button("Terms of Use") {
+                        safariURL = URL(string: "https://relay.cafe/terms")
+                    }
+                    .font(.system(size: 14))
+                    .opacity(0.35)
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("settings.termsButton")
+
+                    Button("Privacy Policy") {
+                        safariURL = URL(string: "https://relay.cafe/privacy")
+                    }
+                    .font(.system(size: 14))
+                    .opacity(0.35)
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("settings.privacyButton")
+                }
+                .padding(.bottom, 32)
             }
             .padding(.horizontal, 28)
         }
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $safariURL) { url in
+            SafariView(url: url)
+                .ignoresSafeArea()
+        }
     }
 
     private var deleteConfirmView: some View {
@@ -90,7 +115,21 @@ struct SettingsView: View {
             }
         } catch {
             isDeleting = false
-            deleteError = "Account not deleted.\nPlease try again."  // case 4
+            deleteError = "Account not deleted.\nPlease try again."
         }
     }
+}
+
+extension URL: @retroactive Identifiable {
+    public var id: String { absoluteString }
+}
+
+struct SafariView: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> SFSafariViewController {
+        SFSafariViewController(url: url)
+    }
+
+    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
 }
