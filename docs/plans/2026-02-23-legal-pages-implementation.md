@@ -17,7 +17,7 @@
 ### Task 1: Create legal.css
 
 **Files:**
-- Create: `docs/landing/legal.css`
+- Create: `relay-cafe-site/legal.css`
 
 **Step 1: Write the stylesheet**
 
@@ -142,7 +142,7 @@ Open any HTML file that links to it (we'll create terms.html next). For now, jus
 **Step 3: Commit**
 
 ```bash
-git add docs/landing/legal.css
+git add relay-cafe-site/legal.css
 git commit -m "feat: legal pages stylesheet"
 ```
 
@@ -151,7 +151,7 @@ git commit -m "feat: legal pages stylesheet"
 ### Task 2: Create terms.html
 
 **Files:**
-- Create: `docs/landing/terms.html`
+- Create: `relay-cafe-site/terms.html`
 
 **Step 1: Write terms.html**
 
@@ -275,13 +275,13 @@ git commit -m "feat: legal pages stylesheet"
 
 **Step 2: Verify in browser**
 
-Run: `open docs/landing/terms.html`
+Run: `open relay-cafe-site/terms.html`
 Expected: Clean, readable legal document. 12 numbered sections. Warm off-white background, left-aligned, quiet "relay.cafe" back link at top.
 
 **Step 3: Commit**
 
 ```bash
-git add docs/landing/terms.html
+git add relay-cafe-site/terms.html
 git commit -m "feat: terms of use page"
 ```
 
@@ -290,7 +290,7 @@ git commit -m "feat: terms of use page"
 ### Task 3: Create privacy.html
 
 **Files:**
-- Create: `docs/landing/privacy.html`
+- Create: `relay-cafe-site/privacy.html`
 
 **Step 1: Write privacy.html**
 
@@ -376,13 +376,13 @@ git commit -m "feat: terms of use page"
 
 **Step 2: Verify in browser**
 
-Run: `open docs/landing/privacy.html`
+Run: `open relay-cafe-site/privacy.html`
 Expected: Same visual treatment as terms page. Seven sections, GDPR rights listed, clean and readable.
 
 **Step 3: Commit**
 
 ```bash
-git add docs/landing/privacy.html
+git add relay-cafe-site/privacy.html
 git commit -m "feat: privacy policy page (GDPR-compliant)"
 ```
 
@@ -391,7 +391,7 @@ git commit -m "feat: privacy policy page (GDPR-compliant)"
 ### Task 4: Update landing page footer
 
 **Files:**
-- Modify: `docs/landing/index.html` (footer nav section)
+- Modify: `relay-cafe-site/index.html` (footer nav section)
 
 **Step 1: Update the footer nav in index.html**
 
@@ -419,13 +419,13 @@ Replace with:
 
 **Step 2: Verify in browser**
 
-Run: `open docs/landing/index.html`
+Run: `open relay-cafe-site/index.html`
 Expected: Footer now shows three links: Privacy Policy, Terms, hello@relay.cafe — separated by middots.
 
 **Step 3: Commit**
 
 ```bash
-git add docs/landing/index.html
+git add relay-cafe-site/index.html
 git commit -m "feat: add terms link to landing page footer"
 ```
 
@@ -616,6 +616,6 @@ Checklist:
 **Step 3: Commit if needed**
 
 ```bash
-git add docs/landing/ relay-cafe-ios/
+git add relay-cafe-site/ relay-cafe-ios/
 git commit -m "fix: legal pages adjustments"
 ```

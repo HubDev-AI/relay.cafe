@@ -9,14 +9,14 @@
 **Tech Stack:** HTML5, CSS3. No JavaScript. No build tools.
 
 **Design doc:** `docs/plans/2026-02-23-landing-page-design.md`
-**Spec:** `docs/landing/PAGE.md`
+**Spec:** `relay-cafe-site/PAGE.md`
 
 ---
 
 ### Task 1: Create the HTML file
 
 **Files:**
-- Create: `docs/landing/index.html`
+- Create: `relay-cafe-site/index.html`
 
 **Step 1: Write index.html**
 
@@ -103,13 +103,13 @@
 
 **Step 2: Verify in browser**
 
-Run: `open docs/landing/index.html`
+Run: `open relay-cafe-site/index.html`
 Expected: Unstyled but structurally correct page with all 5 sections visible.
 
 **Step 3: Commit**
 
 ```bash
-git add docs/landing/index.html
+git add relay-cafe-site/index.html
 git commit -m "feat: landing page HTML structure"
 ```
 
@@ -118,7 +118,7 @@ git commit -m "feat: landing page HTML structure"
 ### Task 2: Create the CSS file — reset and typography
 
 **Files:**
-- Create: `docs/landing/style.css`
+- Create: `relay-cafe-site/style.css`
 
 **Step 1: Write base styles (reset, typography, colors)**
 
@@ -175,13 +175,13 @@ a:hover {
 
 **Step 2: Verify in browser**
 
-Run: `open docs/landing/index.html`
+Run: `open relay-cafe-site/index.html`
 Expected: Typography applied — system font, warm off-white background, proper heading sizes.
 
 **Step 3: Commit**
 
 ```bash
-git add docs/landing/style.css
+git add relay-cafe-site/style.css
 git commit -m "feat: landing page base typography and reset"
 ```
 
@@ -190,7 +190,7 @@ git commit -m "feat: landing page base typography and reset"
 ### Task 3: Add layout styles
 
 **Files:**
-- Modify: `docs/landing/style.css` (append)
+- Modify: `relay-cafe-site/style.css` (append)
 
 **Step 1: Add layout rules to style.css**
 
@@ -221,13 +221,13 @@ footer {
 
 **Step 2: Verify in browser**
 
-Run: `open docs/landing/index.html`
+Run: `open relay-cafe-site/index.html`
 Expected: Content centered with max-width, generous spacing between sections, hero pushed down from top.
 
 **Step 3: Commit**
 
 ```bash
-git add docs/landing/style.css
+git add relay-cafe-site/style.css
 git commit -m "feat: landing page layout and spacing"
 ```
 
@@ -236,7 +236,7 @@ git commit -m "feat: landing page layout and spacing"
 ### Task 4: Add section-specific styles
 
 **Files:**
-- Modify: `docs/landing/style.css` (append)
+- Modify: `relay-cafe-site/style.css` (append)
 
 **Step 1: Add hero, privacy, footer, and CTA styles**
 
@@ -292,13 +292,13 @@ footer nav a {
 
 **Step 2: Verify in browser**
 
-Run: `open docs/landing/index.html`
+Run: `open relay-cafe-site/index.html`
 Expected: Hero tagline slightly larger, "Coming soon" muted, privacy section muted and smaller, footer compact with muted links.
 
 **Step 3: Commit**
 
 ```bash
-git add docs/landing/style.css
+git add relay-cafe-site/style.css
 git commit -m "feat: landing page section-specific styles"
 ```
 
@@ -307,7 +307,7 @@ git commit -m "feat: landing page section-specific styles"
 ### Task 5: Add responsive breakpoint
 
 **Files:**
-- Modify: `docs/landing/style.css` (append)
+- Modify: `relay-cafe-site/style.css` (append)
 
 **Step 1: Add media query for wider screens**
 
@@ -340,7 +340,7 @@ Open in browser and resize window. At narrow widths (<640px): 24px padding, slig
 **Step 3: Commit**
 
 ```bash
-git add docs/landing/style.css
+git add relay-cafe-site/style.css
 git commit -m "feat: landing page responsive breakpoint"
 ```
 
@@ -371,6 +371,6 @@ If any visual issues, fix them and commit the fix.
 **Step 3: Final commit (if needed)**
 
 ```bash
-git add docs/landing/
+git add relay-cafe-site/
 git commit -m "feat: landing page complete"
 ```

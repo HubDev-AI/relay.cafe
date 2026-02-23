@@ -7,13 +7,16 @@ Static landing page for relay.cafe. Informational only — a minimal introductio
 ## Files
 
 ```
-docs/landing/
+relay-cafe-site/
   index.html
   style.css
-  PAGE.md        (existing spec — not deployed)
+
+docs/landing/
+  PAGE.md        (spec — not deployed)
+  TERMS.md       (spec — not deployed)
 ```
 
-Deploy `index.html` + `style.css` to a static CDN (Cloudflare Pages, Netlify, GitHub Pages, etc.). No build step.
+Deploy contents of `relay-cafe-site/` to a static CDN (Cloudflare Pages, Netlify, GitHub Pages, etc.). No build step.
 
 ## Content Sections
 
