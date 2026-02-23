@@ -61,11 +61,13 @@ struct HomeView: View {
             .buttonStyle(.plain)
             .opacity(used ? 0.62 : 1.0)
             .disabled(used)
+            .accessibilityIdentifier("home.sendButton")
 
             if used {
                 Text("You've already sent today.")
                     .font(.system(size: 13))
                     .opacity(0.4)
+                    .accessibilityIdentifier("home.sendUsedLabel")
             } else {
                 // Reserve space so layout stays identical
                 Text(" ").font(.system(size: 13))
@@ -91,15 +93,18 @@ struct HomeView: View {
             .buttonStyle(.plain)
             .opacity(used || isLoading ? 0.62 : 1.0)
             .disabled(used || isLoading)
+            .accessibilityIdentifier("home.receiveButton")
 
             // Sub-label: stable height, content varies
             Group {
                 if used {
                     Text("You've already received today.")
                         .opacity(0.4)
+                        .accessibilityIdentifier("home.receiveUsedLabel")
                 } else if isQuiet {
                     Text("The relay is quiet today.")
                         .opacity(0.4)
+                        .accessibilityIdentifier("home.quietLabel")
                 } else if let receiveError {
                     Text(receiveError)
                         .opacity(0.6)
@@ -121,5 +126,6 @@ struct HomeView: View {
                 .opacity(0.3)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("home.settingsButton")
     }
 }
