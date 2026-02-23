@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Build two static legal pages (Terms of Use + Privacy Policy) with shared styling, update the landing page footer to link both, and add legal links to the iOS Settings screen.
+**Goal:** Build two static legal pages (Terms of Use + Privacy Policy) with shared styling, update the landing page footer to link both, add legal links to iOS Settings, and add consent line to iOS onboarding.
 
-**Architecture:** Two HTML pages sharing a dedicated `legal.css`. Same warm off-white aesthetic as the landing page but with document-tuned typography and tighter spacing. No JavaScript. iOS Settings gets two SFSafariViewController links.
+**Architecture:** Two HTML pages sharing a dedicated `legal.css`. Same warm off-white aesthetic as the landing page but with document-tuned typography and tighter spacing. No JavaScript. iOS Settings gets two SFSafariViewController links. Onboarding gets a muted consent line.
 
 **Tech Stack:** HTML5, CSS3 (web pages). SwiftUI + SafariServices (iOS).
 
@@ -550,7 +550,50 @@ git commit -m "feat: add terms and privacy links to iOS settings"
 
 ---
 
-### Task 6: Final review of all pages
+### Task 6: Add consent line to onboarding
+
+**Files:**
+- Modify: `relay-cafe-ios/RelayCafe/Views/OnboardingView.swift`
+
+**Step 1: Add consent text below the Continue button**
+
+In `OnboardingView.swift`, find:
+
+```swift
+                .buttonStyle(.plain)
+                .padding(.bottom, 48)
+                .accessibilityIdentifier("onboarding.continueButton")
+```
+
+Replace with:
+
+```swift
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("onboarding.continueButton")
+
+                Text("By continuing, you agree to the Terms of Use and Privacy Policy.")
+                    .font(.system(size: 11))
+                    .opacity(0.3)
+                    .padding(.top, 12)
+                    .padding(.bottom, 32)
+```
+
+**Step 2: Verify**
+
+Build the iOS project:
+Run: `cd relay-cafe-ios && xcodebuild -project RelayCafe.xcodeproj -scheme RelayCafe -destination 'platform=iOS Simulator,name=iPhone 16' build 2>&1 | tail -5`
+Expected: BUILD SUCCEEDED
+
+**Step 3: Commit**
+
+```bash
+git add relay-cafe-ios/RelayCafe/Views/OnboardingView.swift
+git commit -m "feat: add terms consent line to onboarding"
+```
+
+---
+
+### Task 7: Final review of all pages
 
 **Step 1: Open all three web pages and verify**
 
@@ -566,6 +609,7 @@ Checklist:
 - [ ] Mobile: readable at 375px width, 24px padding
 - [ ] iOS: Settings shows Terms of Use and Privacy Policy links at bottom
 - [ ] iOS: Tapping links opens SFSafariViewController
+- [ ] iOS: Onboarding shows consent line below Continue button, small and muted
 
 **Step 2: Fix any issues found**
 

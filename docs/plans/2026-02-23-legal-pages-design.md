@@ -112,7 +112,14 @@ Add Terms of Use and Privacy Policy links to SettingsView.swift:
 - Small, muted style — consistent with existing Settings tone
 - URLs: `https://relay.cafe/terms` and `https://relay.cafe/privacy`
 
-No other app changes needed. No consent banner, no onboarding gate, no warning banners.
+Add consent line to `OnboardingView.swift`:
+
+- Below the "Continue" button: "By continuing, you agree to the Terms of Use and Privacy Policy."
+- Font size 11, opacity 0.3 — very small and muted
+- Plain text (not tappable links — the full documents are accessible from Settings)
+- Creates explicit GDPR agreement without changing the app's quiet tone
+
+No other app changes needed. No consent banner, no warning banners.
 
 ## Non-Goals
 
