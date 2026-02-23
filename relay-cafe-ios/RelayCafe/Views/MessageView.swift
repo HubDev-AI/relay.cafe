@@ -18,6 +18,8 @@ struct MessageView: View {
         ZStack {
             LinearGradient.relayBackground.ignoresSafeArea()
 
+            // Layout: 1 spacer above, 2 below → message sits above center
+            // with more visual space below. Do not change to equal spacing.
             VStack(alignment: .leading, spacing: 0) {
                 Spacer()
 
@@ -53,6 +55,7 @@ struct MessageView: View {
                     }
                 }
 
+                Spacer()
                 Spacer()
 
                 Button("Close") { close() }
