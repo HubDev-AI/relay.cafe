@@ -8,6 +8,13 @@
       "when": 1771813809997,
       "tag": "0000_special_the_initiative",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1771837800000,
+      "tag": "0001_cleanup_index_and_cron",
+      "breakpoints": true
     }
   ]
 }
