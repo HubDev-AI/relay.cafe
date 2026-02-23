@@ -913,4 +913,355 @@ We are clarifying daily state behavior and home screen logic.
 
 The system should behave like a static space that changes only based on token availability, not based on time-of-day styling or emotional cues.
 
-Proceed with implementation consistent with this philosophy.
+Daily Token & Expiration Clarification:
+
+Send/receive tokens reset at 00:00 UTC.
+
+Message expiration is strictly 24 hours from creation timestamp.
+
+Tokens and message expiration are independent systems.
+
+It is allowed for a user to have multiple active messages if they send just before and just after UTC reset.
+
+Do NOT enforce “one active message per user.”
+
+Do NOT modify expiration based on daily reset.
+
+No coupling between token reset and message TTL.
+
+---
+
+### Cleanup Architecture Decision – Final
+
+We are choosing database-level expiration cleanup.
+
+Do NOT implement Railway cron hitting an internal API endpoint.
+
+Do NOT create an `/internal/cleanup` HTTP endpoint.
+
+Do NOT add CRON_SECRET.
+
+Expiration is strictly a data lifecycle rule and belongs at the database layer.
+
+Implementation requirements:
+
+1. Messages must be permanently deleted when:
+   `expires_at <= NOW()`.
+
+2. Cleanup must run every 5–10 minutes.
+
+3. Use database-level scheduling (pg_cron if available, or Railway scheduled SQL if supported).
+
+4. The cleanup job must:
+
+   * Execute a direct SQL DELETE.
+   * Not fetch rows into application memory.
+   * Not decrypt anything.
+   * Not log deleted message IDs.
+   * Not archive expired messages.
+   * Not soft-delete.
+
+5. Add an index to ensure cleanup performance:
+
+   ```sql
+   CREATE INDEX idx_messages_expires_at ON messages (expires_at);
+   ```
+
+6. Expiration is final. There is no recovery, no archive table, no logging of content.
+
+This keeps the system minimal and reduces operational surface area.
+
+Do not propose alternative cron services unless database scheduling is technically unavailable.
+
+### Relay.cafe – UI Refinement & Error Handling Fixes
+
+Apply the following visual and UX adjustments. Maintain the minimal philosophy. Do not add decorative elements.
+
+---
+
+## 1. Remove Raw Apple Error Codes
+
+The current sign-in screen displays system error text like:
+
+`com.apple.AuthenticationServices.AuthorizationError 1000`
+
+This must never be shown to the user.
+
+Replace all raw framework/system error output with:
+
+> Unable to sign in.
+> Please try again.
+
+Do not expose error codes, stack traces, or system identifiers in UI.
+
+---
+
+## 2. Onboarding Spacing Refinement
+
+Adjust layout:
+
+* Increase vertical spacing between “Relay.cafe” and body text slightly.
+* Add slightly more spacing between the two conceptual blocks:
+
+Current:
+
+```
+Once a day,
+you may send a message.
+Once a day,
+you may receive one.
+```
+
+Refine to visually separate the two ideas with more vertical breathing room.
+
+Do not change wording.
+
+---
+
+## 3. Disabled Button Opacity Adjustment
+
+When a token is used:
+
+* Disabled button opacity should be ~60–65%.
+* It must still be readable.
+* Do not make it too faint.
+* Maintain layout stability (no movement).
+
+Example:
+“You’ve already sent today.” remains below the disabled button.
+
+---
+
+## 4. Compose Screen Layout Adjustment
+
+* Slightly increase top padding so guidance text:
+
+  > It may be read once.
+  > Or not at all.
+
+  does not feel cramped against the safe area.
+
+* Ensure text input area has comfortable breathing room.
+
+---
+
+## 5. Send Button Behavior
+
+* “Send” must be disabled when input is empty.
+* It becomes active only when text length > 0.
+* No color change to bright accent.
+* Keep minimal styling.
+* Only subtle opacity change.
+
+---
+
+## 6. Error Message Positioning (Compose Screen)
+
+For:
+
+> Message not sent.
+> Please try again.
+
+Adjust spacing so the error message sits closer to the composed text.
+
+Avoid large empty white gaps between message content and error state.
+
+Keep tone calm and consistent.
+
+---
+
+## 7. Background Gradient Adjustment
+
+Current background gradient is slightly too noticeable.
+
+Refine to:
+
+* Very subtle warm tone variation.
+* Gradient should feel like ambient light, not a design element.
+* Avoid visible banding or decorative feel.
+
+No strong color transitions.
+
+---
+
+## 8. Safe Area Padding
+
+Ensure onboarding and compose screens:
+
+* Have slightly more top padding under dynamic island.
+* Content should feel comfortably centered vertically.
+* Avoid crowding the top edge.
+
+---
+
+## Important Constraints
+
+* Do NOT add new UI elements.
+* Do NOT introduce icons.
+* Do NOT add animations.
+* Do NOT add color accents.
+* Do NOT change wording.
+* Maintain minimalist aesthetic.
+
+### Relay.cafe – Time-Based State Enforcement (Foreground + Expiration Handling)
+
+We must enforce time-based rules even if the app remains open or in background.
+
+The UI must never rely on static state.
+
+Implement the following:
+
+---
+
+## 1. App Foreground Revalidation
+
+When the app becomes active (`scenePhase == .active`):
+
+Revalidate all time-based state:
+
+* Recalculate current UTC day.
+* Recalculate send token availability.
+* Recalculate receive token availability.
+* If a message is currently displayed:
+
+  * Check its `expires_at` timestamp.
+  * If `now >= expires_at`, invalidate immediately.
+
+Do NOT rely on cached state from previous session.
+
+---
+
+## 2. Message Expiration While Displayed
+
+When displaying a message:
+
+* Store `expires_at` (server-provided timestamp) in memory only.
+* Do not persist to disk.
+* Do not rely on client-generated expiration time.
+
+On foreground entry:
+
+```swift
+if Date() >= expiresAt {
+    invalidateMessage()
+}
+```
+
+If expired:
+
+* Fade out message (subtle, 0.3–0.4 seconds).
+
+* Replace with:
+
+  "This message is no longer available."
+
+* Remove message from memory.
+
+No dramatic animation.
+No warning.
+No countdown.
+
+---
+
+## 3. Midnight UTC Reset Handling
+
+If app remains open across 00:00 UTC:
+
+On next foreground activation:
+
+* Recompute daily tokens.
+* Update button states.
+* Do NOT show “new day” message.
+* Do NOT show countdown.
+* Reset silently.
+
+---
+
+## 4. Optional Lightweight Safety Check (While Active)
+
+If desired, add a lightweight timer (max every 60 seconds) while message is visible to re-check expiration.
+
+Do NOT:
+
+* Poll aggressively.
+* Make network calls.
+* Create performance-heavy loops.
+
+This is only a guard.
+
+---
+
+## 5. Constraints
+
+* Do NOT persist message content locally.
+* Do NOT allow message to survive past expiration due to UI state.
+* Do NOT trust only client clock — use server-provided expiration timestamp.
+* Time rules must override view state.
+
+The system must enforce:
+Messages exist for 24 hours.
+No exceptions.
+
+---
+
+### Relay.cafe – Strict Implementation Mode
+
+You are no longer allowed to propose architecture changes or alternative designs.
+
+You must implement exactly what is specified.
+
+Do NOT:
+
+* Suggest additional services.
+* Suggest alternative encryption models.
+* Suggest different cron strategies.
+* Suggest feature improvements.
+* Suggest UX enhancements.
+* Suggest scalability optimizations.
+* Suggest refactors unless explicitly requested.
+
+You must:
+
+* Follow the current spec exactly.
+* Implement only the requested change.
+* Keep changes minimal.
+* Avoid introducing new abstractions.
+* Avoid adding new files unless necessary.
+* Avoid modifying unrelated code.
+
+If something is unclear:
+
+* Ask a short clarification question.
+* Do not invent behavior.
+
+When implementing time-based logic:
+
+* Follow the specified UTC reset model.
+* Do not introduce rolling 24h per-user logic.
+* Do not introduce countdown timers.
+* Do not introduce background workers unless explicitly requested.
+
+When implementing UI:
+
+* Do not add animations unless specified.
+* Do not add color accents.
+* Do not expose system error codes.
+* Keep text exactly as defined.
+
+Treat this as a minimalist system.
+Restraint is part of the design.
+
+For each task:
+
+1. Briefly restate the task.
+2. Implement only that.
+3. Do not expand scope.
+
+We are optimizing for correctness and simplicity, not feature richness.
+
+---
+
+This forces the agent into execution mode instead of creative mode.
+
+You are the architect.
+It is the implementer.
