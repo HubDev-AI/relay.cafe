@@ -1,0 +1,20 @@
+# Local Redis with Upstash-compatible REST proxy.
+# Usage: docker compose up -d
+# Then add to .env:
+#   UPSTASH_REDIS_REST_URL=http://localhost:8079
+#   UPSTASH_REDIS_REST_TOKEN=local-token
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+  redis-rest:
+    image: hiett/serverless-redis-http:latest
+    ports:
+      - "8079:80"
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: local-token
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - redis
