@@ -139,7 +139,7 @@ messagesRouter.get('/today', async (c) => {
 
   const expiresAt = msg.expires_at instanceof Date
     ? msg.expires_at.toISOString()
-    : String(msg.expires_at)
+    : new Date(msg.expires_at).toISOString()
 
   return c.json({ id: msg.id, text, expiresAt })
 })
