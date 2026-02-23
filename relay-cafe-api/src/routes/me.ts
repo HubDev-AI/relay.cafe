@@ -3,12 +3,13 @@ import { db } from '../db'
 import { users, dailyTokens } from '../db/schema'
 import { eq, and } from 'drizzle-orm'
 import { authMiddleware } from '../middleware/auth'
+import { currentPeriod } from '../lib/period'
 
 export const meRouter = new Hono()
 
 meRouter.get('/status', authMiddleware, async (c) => {
   const userId = c.get('userId') as string
-  const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD UTC
+  const today = currentPeriod()
 
   const [tokens] = await db
     .select()

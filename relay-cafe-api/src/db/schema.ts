@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, boolean, timestamp, date, primaryKey, index } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, text, boolean, timestamp, primaryKey, index } from 'drizzle-orm/pg-core'
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -16,7 +16,7 @@ export const sessions = pgTable('sessions', {
 
 export const dailyTokens = pgTable('daily_tokens', {
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  date: date('date').notNull(),
+  date: text('date').notNull(),
   sendUsed: boolean('send_used').notNull().default(false),
   receiveUsed: boolean('receive_used').notNull().default(false),
 }, (t) => ({

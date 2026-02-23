@@ -1,1 +1,1 @@
-console.log("Hello via Bun!");
+export { app } from './src/app'

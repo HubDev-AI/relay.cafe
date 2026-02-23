@@ -1,1 +1,5 @@
 .worktrees/
+.history/
+relay-cafe-api/.env
+relay-cafe-api/gcp-credentials.json
+relay-cafe-api/node_modules/

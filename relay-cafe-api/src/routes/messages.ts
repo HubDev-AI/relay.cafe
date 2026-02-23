@@ -4,6 +4,7 @@ import { messages, dailyTokens } from '../db/schema'
 import { and, eq, gt, sql } from 'drizzle-orm'
 import { encryptMessage, decryptMessage } from '../lib/crypto'
 import { wrapKey, unwrapKey } from '../lib/kms'
+import { currentPeriod } from '../lib/period'
 
 // authMiddleware is applied by app.ts when mounting this router
 export const messagesRouter = new Hono()
@@ -18,7 +19,7 @@ messagesRouter.post('/', async (c) => {
   }
 
   const userId = c.get('userId') as string
-  const today = new Date().toISOString().slice(0, 10)
+  const today = currentPeriod()
 
   // Upsert daily token row
   await db
@@ -59,12 +60,12 @@ messagesRouter.post('/', async (c) => {
     expiresAt,
   })
 
-  return c.body(null, 204)
+  return c.json({ ok: true }, 201)
 })
 
 messagesRouter.get('/today', async (c) => {
   const userId = c.get('userId') as string
-  const today = new Date().toISOString().slice(0, 10)
+  const today = currentPeriod()
 
   // Upsert daily token row
   await db
@@ -98,6 +99,7 @@ messagesRouter.get('/today', async (c) => {
     encrypted_message_key: string
     kms_key_version: string
     iv: string
+    expires_at: Date
   }>(sql`
     WITH candidate AS (
       SELECT id FROM messages
@@ -111,7 +113,7 @@ messagesRouter.get('/today', async (c) => {
     WHERE messages.id = candidate.id
     RETURNING messages.id, messages.ciphertext,
               messages.encrypted_message_key, messages.kms_key_version,
-              messages.iv
+              messages.iv, messages.expires_at
   `)
 
   const msg = claimedMessages[0]
@@ -135,5 +137,9 @@ messagesRouter.get('/today', async (c) => {
   const key = await unwrapKey(msg.encrypted_message_key, msg.kms_key_version)
   const text = await decryptMessage(msg.ciphertext, msg.iv, key)
 
-  return c.json({ id: msg.id, text })
+  const expiresAt = msg.expires_at instanceof Date
+    ? msg.expires_at.toISOString()
+    : String(msg.expires_at)
+
+  return c.json({ id: msg.id, text, expiresAt })
 })
