@@ -32,7 +32,7 @@ describe('message TTL expiry', () => {
     // Wait for TTL to pass
     await sleep((TTL_SECONDS + 0.5) * 1000)
 
-    const res = await request('/messages/today', { token: receiver.token })
+    const res = await request('/v1/messages/today', { token: receiver.token })
     expect(res.status).toBe(204)
   }, (TTL_SECONDS + 2) * 1000)
 
@@ -40,7 +40,7 @@ describe('message TTL expiry', () => {
     const { plaintext } = await createMessage()
     const receiver = await createAuthenticatedUser()
 
-    const { status, json } = await requestJSON<{ text: string }>('/messages/today', {
+    const { status, json } = await requestJSON<{ text: string }>('/v1/messages/today', {
       token: receiver.token,
     })
     expect(status).toBe(200)
@@ -52,7 +52,7 @@ describe('message TTL expiry', () => {
     const { plaintext } = await createMessage()
 
     const receiver = await createAuthenticatedUser()
-    const { status, json } = await requestJSON<{ text: string }>('/messages/today', {
+    const { status, json } = await requestJSON<{ text: string }>('/v1/messages/today', {
       token: receiver.token,
     })
     expect(status).toBe(200)
@@ -70,7 +70,7 @@ describe('token period boundary', () => {
     const user = await createAuthenticatedUser()
 
     // Send in current period
-    const r1 = await requestJSON('/messages', {
+    const r1 = await requestJSON('/v1/messages', {
       method: 'POST',
       token: user.token,
       body: { text: 'period 1' },
@@ -78,7 +78,7 @@ describe('token period boundary', () => {
     expect(r1.status).toBe(201)
 
     // Second send in same period fails
-    const r2 = await requestJSON('/messages', {
+    const r2 = await requestJSON('/v1/messages', {
       method: 'POST',
       token: user.token,
       body: { text: 'period 1 again' },
@@ -89,7 +89,7 @@ describe('token period boundary', () => {
     await sleep((PERIOD_SECONDS + 0.5) * 1000)
 
     // Send in new period succeeds
-    const r3 = await requestJSON('/messages', {
+    const r3 = await requestJSON('/v1/messages', {
       method: 'POST',
       token: user.token,
       body: { text: 'period 2' },
@@ -103,12 +103,12 @@ describe('token period boundary', () => {
 
     // Insert and receive in period 1
     await createMessage()
-    const r1 = await requestJSON('/messages/today', { token: receiver.token })
+    const r1 = await requestJSON('/v1/messages/today', { token: receiver.token })
     expect(r1.status).toBe(200)
 
     // Second receive in same period fails
     await createMessage()
-    const r2 = await requestJSON('/messages/today', { token: receiver.token })
+    const r2 = await requestJSON('/v1/messages/today', { token: receiver.token })
     expect(r2.status).toBe(429)
 
     // Wait for period to change
@@ -116,7 +116,7 @@ describe('token period boundary', () => {
 
     // Receive in new period succeeds
     await createMessage()
-    const r3 = await requestJSON('/messages/today', { token: receiver.token })
+    const r3 = await requestJSON('/v1/messages/today', { token: receiver.token })
     expect(r3.status).toBe(200)
   }, (PERIOD_SECONDS * 2 + 3) * 1000)
 
@@ -126,17 +126,17 @@ describe('token period boundary', () => {
 
     // Use both tokens
     await createMessage()
-    await requestJSON('/messages', { method: 'POST', token: user.token, body: { text: 'sent' } })
-    await requestJSON('/messages/today', { token: user.token })
+    await requestJSON('/v1/messages', { method: 'POST', token: user.token, body: { text: 'sent' } })
+    await requestJSON('/v1/messages/today', { token: user.token })
 
-    const statusBefore = await requestJSON<{ sendUsed: boolean; receiveUsed: boolean }>('/me/status', { token: user.token })
+    const statusBefore = await requestJSON<{ sendUsed: boolean; receiveUsed: boolean }>('/v1/me/status', { token: user.token })
     expect(statusBefore.json!.sendUsed).toBe(true)
     expect(statusBefore.json!.receiveUsed).toBe(true)
 
     // Wait for period reset
     await sleep((PERIOD_SECONDS + 0.5) * 1000)
 
-    const statusAfter = await requestJSON<{ sendUsed: boolean; receiveUsed: boolean }>('/me/status', { token: user.token })
+    const statusAfter = await requestJSON<{ sendUsed: boolean; receiveUsed: boolean }>('/v1/me/status', { token: user.token })
     expect(statusAfter.json!.sendUsed).toBe(false)
     expect(statusAfter.json!.receiveUsed).toBe(false)
   }, (PERIOD_SECONDS * 2 + 3) * 1000)

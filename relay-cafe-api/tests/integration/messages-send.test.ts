@@ -6,7 +6,7 @@ import { messages, dailyTokens } from '../../src/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { currentPeriod } from '../../src/lib/period'
 
-describe('POST /messages (send)', () => {
+describe('POST /v1/messages (send)', () => {
   let token: string
   let userId: string
 
@@ -18,7 +18,7 @@ describe('POST /messages (send)', () => {
   })
 
   test('valid send returns 201 with { ok: true }', async () => {
-    const { status, json } = await requestJSON('/messages', {
+    const { status, json } = await requestJSON('/v1/messages', {
       method: 'POST',
       token,
       body: { text: 'Hello stranger' },
@@ -28,7 +28,7 @@ describe('POST /messages (send)', () => {
   })
 
   test('send creates encrypted message in DB', async () => {
-    await requestJSON('/messages', {
+    await requestJSON('/v1/messages', {
       method: 'POST',
       token,
       body: { text: 'Check the DB' },
@@ -45,7 +45,7 @@ describe('POST /messages (send)', () => {
   })
 
   test('send marks sendUsed=true in daily tokens', async () => {
-    await requestJSON('/messages', {
+    await requestJSON('/v1/messages', {
       method: 'POST',
       token,
       body: { text: 'Check tokens' },
@@ -60,7 +60,7 @@ describe('POST /messages (send)', () => {
 
   test('expiresAt is set correctly based on MESSAGE_TTL_SECONDS', async () => {
     const before = Date.now()
-    await requestJSON('/messages', {
+    await requestJSON('/v1/messages', {
       method: 'POST',
       token,
       body: { text: 'TTL check' },
@@ -75,8 +75,8 @@ describe('POST /messages (send)', () => {
   })
 
   test('already sent today returns 429', async () => {
-    await requestJSON('/messages', { method: 'POST', token, body: { text: 'first' } })
-    const { status, json } = await requestJSON('/messages', {
+    await requestJSON('/v1/messages', { method: 'POST', token, body: { text: 'first' } })
+    const { status, json } = await requestJSON('/v1/messages', {
       method: 'POST',
       token,
       body: { text: 'second attempt' },
@@ -86,14 +86,14 @@ describe('POST /messages (send)', () => {
   })
 
   test('second send does NOT create a second message', async () => {
-    await requestJSON('/messages', { method: 'POST', token, body: { text: 'first' } })
-    await requestJSON('/messages', { method: 'POST', token, body: { text: 'second' } })
+    await requestJSON('/v1/messages', { method: 'POST', token, body: { text: 'first' } })
+    await requestJSON('/v1/messages', { method: 'POST', token, body: { text: 'second' } })
     const allMessages = await db.select().from(messages)
     expect(allMessages.length).toBe(1)
   })
 
   test('empty text returns 400', async () => {
-    const { status } = await requestJSON('/messages', {
+    const { status } = await requestJSON('/v1/messages', {
       method: 'POST',
       token,
       body: { text: '' },
@@ -102,7 +102,7 @@ describe('POST /messages (send)', () => {
   })
 
   test('missing text field returns 400', async () => {
-    const { status } = await requestJSON('/messages', {
+    const { status } = await requestJSON('/v1/messages', {
       method: 'POST',
       token,
       body: {},
@@ -111,7 +111,7 @@ describe('POST /messages (send)', () => {
   })
 
   test('non-string text returns 400', async () => {
-    const { status } = await requestJSON('/messages', {
+    const { status } = await requestJSON('/v1/messages', {
       method: 'POST',
       token,
       body: { text: 12345 },
@@ -120,7 +120,7 @@ describe('POST /messages (send)', () => {
   })
 
   test('text exceeding 1000 characters returns 400', async () => {
-    const { status } = await requestJSON('/messages', {
+    const { status } = await requestJSON('/v1/messages', {
       method: 'POST',
       token,
       body: { text: 'x'.repeat(1001) },
@@ -129,7 +129,7 @@ describe('POST /messages (send)', () => {
   })
 
   test('exactly 1000 characters is accepted', async () => {
-    const { status } = await requestJSON('/messages', {
+    const { status } = await requestJSON('/v1/messages', {
       method: 'POST',
       token,
       body: { text: 'x'.repeat(1000) },
@@ -138,7 +138,7 @@ describe('POST /messages (send)', () => {
   })
 
   test('whitespace-only text is rejected', async () => {
-    const { status } = await requestJSON('/messages', {
+    const { status } = await requestJSON('/v1/messages', {
       method: 'POST',
       token,
       body: { text: '   ' },
@@ -147,7 +147,7 @@ describe('POST /messages (send)', () => {
   })
 
   test('emoji message works', async () => {
-    const { status } = await requestJSON('/messages', {
+    const { status } = await requestJSON('/v1/messages', {
       method: 'POST',
       token,
       body: { text: '\u{1F30D}\u{1F525}\u{2728}' },
@@ -156,7 +156,7 @@ describe('POST /messages (send)', () => {
   })
 
   test('no auth returns 401', async () => {
-    const { status } = await requestJSON('/messages', {
+    const { status } = await requestJSON('/v1/messages', {
       method: 'POST',
       body: { text: 'no auth' },
     })
@@ -167,12 +167,12 @@ describe('POST /messages (send)', () => {
     const userA = await createAuthenticatedUser()
     const userB = await createAuthenticatedUser()
 
-    const resA = await requestJSON('/messages', {
+    const resA = await requestJSON('/v1/messages', {
       method: 'POST',
       token: userA.token,
       body: { text: 'from A' },
     })
-    const resB = await requestJSON('/messages', {
+    const resB = await requestJSON('/v1/messages', {
       method: 'POST',
       token: userB.token,
       body: { text: 'from B' },
