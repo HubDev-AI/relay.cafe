@@ -1,4 +1,4 @@
-# Local dev stack: API + Postgres + Redis with Upstash-compatible REST proxy.
+# Local dev stack: API + Postgres + Redis.
 # Usage: docker compose up --build
 services:
   postgres:
@@ -22,17 +22,6 @@ services:
     ports:
       - "6379:6379"
 
-  redis-rest:
-    image: hiett/serverless-redis-http:latest
-    ports:
-      - "8079:80"
-    environment:
-      SRH_MODE: env
-      SRH_TOKEN: local-token
-      REDIS_URL: redis://redis:6379
-    depends_on:
-      - redis
-
   api:
     build: .
     ports:
@@ -40,15 +29,14 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgres://relaycafe:relaycafe@postgres:5432/relaycafe
-      # Rate limiting uses in-memory fallback for local dev.
-      # SRH doesn't support the Lua scripting commands @upstash/ratelimit needs.
-      UPSTASH_REDIS_REST_URL: ""
-      UPSTASH_REDIS_REST_TOKEN: ""
+      REDIS_URL: redis://redis:6379
     volumes:
       - ./gcp-credentials.json:/app/gcp-credentials.json:ro
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
 volumes:
   pgdata:
