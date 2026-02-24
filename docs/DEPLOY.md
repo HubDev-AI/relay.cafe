@@ -20,6 +20,8 @@ All are required unless noted:
 | `MESSAGE_TTL_SECONDS` | Message expiry (default: `86400` = 24h) |
 | `TOKEN_PERIOD_SECONDS` | Token reset period (default: `86400` = daily) |
 | `SENTRY_DSN` | Optional. Sentry error tracking DSN |
+| `REDIS_URL` | Redis connection string for rate limiting. Optional — falls back to in-memory |
+| `GCP_CREDENTIALS_B64` | Optional. Base64-encoded GCP service account JSON (decoded at container startup) |
 
 ### Deploy Gotcha: TOKEN_PERIOD_SECONDS
 
