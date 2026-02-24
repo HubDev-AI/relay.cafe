@@ -1,7 +1,7 @@
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
-watchPatterns = ["relay-cafe-api/**"]
+watchPatterns = ["**"]
 
 [deploy]
 healthcheckPath = "/health"
