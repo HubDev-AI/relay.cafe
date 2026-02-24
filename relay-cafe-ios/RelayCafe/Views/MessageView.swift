@@ -18,55 +18,61 @@ struct MessageView: View {
         ZStack {
             LinearGradient.relayBackground.ignoresSafeArea()
 
-            // Layout: 1 spacer above, 2 below → message sits above center
-            // with more visual space below. Do not change to equal spacing.
-            VStack(alignment: .leading, spacing: 0) {
-                Spacer()
-
-                VStack(alignment: .leading, spacing: 20) {
-                    if expired {
-                        Text("This message is no longer available.")
-                            .font(.system(size: 19, weight: .regular))
-                            .opacity(0.35)
-                            .accessibilityIdentifier("message.expiredLabel")
-                        Text(" ")
-                            .font(.system(size: 14))
-                    } else {
-                        Text(displayText)
-                            .font(.system(size: 19, weight: .regular))
-                            .lineSpacing(8)
-                            .textSelection(.enabled)
-                            .opacity(appeared ? 1 : 0)
-                            .animation(.easeInOut(duration: 0.6), value: appeared)
-                            .accessibilityIdentifier("message.text")
-
-                        Group {
-                            if translationFailed {
-                                Text("Translation unavailable.\nYou may read the original.")
-                            } else if let lang = originalLanguage {
-                                Text("Originally written in \(lang).")
-                            } else {
-                                Text(" ")
-                            }
-                        }
-                        .font(.system(size: 14))
-                        .opacity(0.4)
-                    }
+            if expired {
+                VStack(spacing: 0) {
+                    Spacer()
+                    Text("This message is no longer available.")
+                        .font(.system(size: 19, weight: .regular))
+                        .opacity(0.35)
+                        .accessibilityIdentifier("message.expiredLabel")
+                    Spacer()
+                    Button("Close") { close() }
+                        .font(.system(size: 17))
+                        .opacity(0.35)
+                        .buttonStyle(.plain)
+                        .padding(.bottom, 48)
+                        .accessibilityIdentifier("message.closeButton")
                 }
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 20) {
+                            Text(displayText)
+                                .font(.system(size: 19, weight: .regular))
+                                .lineSpacing(8)
+                                .textSelection(.enabled)
+                                .opacity(appeared ? 1 : 0)
+                                .animation(.easeInOut(duration: 0.6), value: appeared)
+                                .accessibilityIdentifier("message.text")
 
-                Spacer()
-                Spacer()
+                            Group {
+                                if translationFailed {
+                                    Text("Translation unavailable.\nYou may read the original.")
+                                } else if let lang = originalLanguage {
+                                    Text("Originally written in \(lang).")
+                                } else {
+                                    Text(" ")
+                                }
+                            }
+                            .font(.system(size: 14))
+                            .opacity(0.4)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 64)
+                    }
+                    .scrollIndicators(.hidden)
 
-                Button("Close") { close() }
-                    .font(.system(size: 17))
-                    .opacity(0.35)
-                    .buttonStyle(.plain)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.top, 32)
-                    .padding(.bottom, 48)
-                    .accessibilityIdentifier("message.closeButton")
-            }
+                    Button("Close") { close() }
+                        .font(.system(size: 17))
+                        .opacity(0.35)
+                        .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 32)
+                        .padding(.bottom, 48)
+                        .accessibilityIdentifier("message.closeButton")
+                }
             .padding(.horizontal, 28)
+            }
         }
         .onAppear {
             withAnimation { appeared = true }

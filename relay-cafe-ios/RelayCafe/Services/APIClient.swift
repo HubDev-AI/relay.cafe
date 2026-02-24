@@ -135,9 +135,10 @@ actor APIClient {
         errorCode: String? = nil,
         errorDomain: String? = nil
     ) async {
+        let osVersion = await UIDevice.current.systemVersion
         var body: [String: Any] = [
             "event": event,
-            "osVersion": "iOS \(UIDevice.current.systemVersion)",
+            "osVersion": "iOS \(osVersion)",
             "appVersion": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown",
         ]
         if let sourceLanguage { body["sourceLanguage"] = sourceLanguage }
