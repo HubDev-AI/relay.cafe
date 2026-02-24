@@ -17,7 +17,7 @@ process.on('uncaughtException', (err) => {
 })
 
 // TODO: Replace with pg_cron when available on Railway Postgres.
-Cron('*/10 * * * *', async () => {
+new Cron('*/10 * * * *', async () => {
   try {
     const result = await db.execute(sql`DELETE FROM messages WHERE expires_at <= NOW()`)
     const count = result.length
