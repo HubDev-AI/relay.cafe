@@ -40,15 +40,15 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgres://relaycafe:relaycafe@postgres:5432/relaycafe
-      UPSTASH_REDIS_REST_URL: http://redis-rest:80
-      UPSTASH_REDIS_REST_TOKEN: local-token
+      # Rate limiting uses in-memory fallback for local dev.
+      # SRH doesn't support the Lua scripting commands @upstash/ratelimit needs.
+      UPSTASH_REDIS_REST_URL: ""
+      UPSTASH_REDIS_REST_TOKEN: ""
     volumes:
       - ./gcp-credentials.json:/app/gcp-credentials.json:ro
     depends_on:
       postgres:
         condition: service_healthy
-      redis-rest:
-        condition: service_started
 
 volumes:
   pgdata:
