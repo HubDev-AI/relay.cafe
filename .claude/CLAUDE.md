@@ -71,6 +71,7 @@ Copy `.env.example` to `.env` — never commit `.env`.
 - `GET /messages/today` → includes `expiresAt` as epoch milliseconds (number)
 - Receive token NOT consumed if message pool is empty
 - Messages hard-deleted on delivery
+- Expired messages cleaned up every 10 min by in-process cron (`croner` in `index.ts`). Replace with `pg_cron` when Railway Postgres supports it.
 
 ## iOS App
 
