@@ -1,0 +1,16 @@
+node_modules
+.env
+.env.*
+!.env.example
+gcp-credentials.json
+.git
+.gitignore
+.DS_Store
+.cursor
+coverage
+out
+dist
+*.tgz
+*.lcov
+*.md
+tests

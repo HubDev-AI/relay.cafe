@@ -1,13 +1,27 @@
-# Local Redis with Upstash-compatible REST proxy.
-# Usage: docker compose up -d
-# Then add to .env:
-#   UPSTASH_REDIS_REST_URL=http://localhost:8079
-#   UPSTASH_REDIS_REST_TOKEN=local-token
+# Local dev stack: API + Postgres + Redis with Upstash-compatible REST proxy.
+# Usage: docker compose up --build
 services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: relaycafe
+      POSTGRES_PASSWORD: relaycafe
+      POSTGRES_DB: relaycafe
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U relaycafe"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+
   redis-rest:
     image: hiett/serverless-redis-http:latest
     ports:
@@ -18,3 +32,23 @@ services:
       REDIS_URL: redis://redis:6379
     depends_on:
       - redis
+
+  api:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://relaycafe:relaycafe@postgres:5432/relaycafe
+      UPSTASH_REDIS_REST_URL: http://redis-rest:80
+      UPSTASH_REDIS_REST_TOKEN: local-token
+    volumes:
+      - ./gcp-credentials.json:/app/gcp-credentials.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis-rest:
+        condition: service_started
+
+volumes:
+  pgdata:
