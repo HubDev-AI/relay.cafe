@@ -30,9 +30,11 @@ return max_requests - count
 
 export class RedisRateLimiter implements IRateLimiter {
   private redis: import('bun').RedisClient
+  private timeoutMs: number
 
   constructor(redisUrl: string) {
     this.redis = new Bun.RedisClient(redisUrl)
+    this.timeoutMs = Number(process.env.REDIS_TIMEOUT_MS) || 2000
   }
 
   async check(key: string, tier: RateLimitTier): Promise<RateLimitResult> {
@@ -43,15 +45,20 @@ export class RedisRateLimiter implements IRateLimiter {
     const member = `${now}:${Math.random().toString(36).slice(2, 8)}`
 
     const remaining = Number(
-      await this.redis.send('EVAL', [
-        RATE_LIMIT_SCRIPT,
-        '1',
-        redisKey,
-        String(windowStart),
-        String(now),
-        String(windowMs),
-        String(maxRequests),
-        member,
+      await Promise.race([
+        this.redis.send('EVAL', [
+          RATE_LIMIT_SCRIPT,
+          '1',
+          redisKey,
+          String(windowStart),
+          String(now),
+          String(windowMs),
+          String(maxRequests),
+          member,
+        ]),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Redis timeout')), this.timeoutMs),
+        ),
       ]),
     )
 
