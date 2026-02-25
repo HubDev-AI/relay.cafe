@@ -20,7 +20,6 @@ struct MessageResponse: Codable, Equatable, Identifiable {
 enum APIError: Error {
     case unauthorized
     case alreadyUsedToday
-    case noMessage          // 204 — relay is quiet
     case networkError(Error)
     case serverError(Int)
     case decodingError(Error)
@@ -114,11 +113,7 @@ actor APIClient {
     }
 
     func receiveMessage() async throws -> MessageResponse? {
-        do {
-            return try await get("/v1/messages/today")
-        } catch APIError.noMessage {
-            return nil
-        }
+        try await getOptional("/v1/messages/today")
     }
 
     func deleteAccount() async throws {
@@ -152,15 +147,19 @@ actor APIClient {
     // MARK: Private helpers
 
     private func get<T: Decodable>(_ path: String) async throws -> T {
-        var req = URLRequest(url: baseURL.appendingPathComponent(path))
-        try attachAuth(&req)
-        let (data, response): (Data, URLResponse)
+        let (data, _) = try await request(path, method: "GET")
         do {
-            (data, response) = try await URLSession.shared.data(for: req)
+            return try decoder.decode(T.self, from: data)
         } catch {
-            throw APIError.networkError(error)
+            throw APIError.decodingError(error)
         }
-        try validate(response, data: data)
+    }
+
+    /// GET that returns nil on 204 (no content) instead of throwing.
+    private func getOptional<T: Decodable>(_ path: String) async throws -> T? {
+        let (data, response) = try await request(path, method: "GET")
+        guard let http = response as? HTTPURLResponse else { return nil }
+        if http.statusCode == 204 || data.isEmpty { return nil }
         do {
             return try decoder.decode(T.self, from: data)
         } catch {
@@ -171,18 +170,7 @@ actor APIClient {
     private func post<T: Decodable>(
         _ path: String, body: [String: Any], requiresAuth: Bool = true
     ) async throws -> T {
-        var req = URLRequest(url: baseURL.appendingPathComponent(path))
-        req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONSerialization.data(withJSONObject: body)
-        if requiresAuth { try attachAuth(&req) }
-        let (data, response): (Data, URLResponse)
-        do {
-            (data, response) = try await URLSession.shared.data(for: req)
-        } catch {
-            throw APIError.networkError(error)
-        }
-        try validate(response, data: data)
+        let (data, _) = try await request(path, method: "POST", body: body, requiresAuth: requiresAuth)
         do {
             return try decoder.decode(T.self, from: data)
         } catch {
@@ -191,31 +179,47 @@ actor APIClient {
     }
 
     private func postEmpty(_ path: String, body: [String: Any]) async throws {
-        var req = URLRequest(url: baseURL.appendingPathComponent(path))
-        req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONSerialization.data(withJSONObject: body)
-        try attachAuth(&req)
-        let (data, response): (Data, URLResponse)
-        do {
-            (data, response) = try await URLSession.shared.data(for: req)
-        } catch {
-            throw APIError.networkError(error)
-        }
-        try validate(response, data: data)
+        _ = try await request(path, method: "POST", body: body)
     }
 
     private func delete(_ path: String) async throws {
+        _ = try await request(path, method: "DELETE")
+    }
+
+    // MARK: Single request pipeline
+
+    private func request(
+        _ path: String,
+        method: String,
+        body: [String: Any]? = nil,
+        requiresAuth: Bool = true
+    ) async throws -> (Data, URLResponse) {
         var req = URLRequest(url: baseURL.appendingPathComponent(path))
-        req.httpMethod = "DELETE"
-        try attachAuth(&req)
-        let (data, response): (Data, URLResponse)
+        req.httpMethod = method
+        if let body {
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        }
+        if requiresAuth { try attachAuth(&req) }
+
+        let data: Data
+        let response: URLResponse
         do {
             (data, response) = try await URLSession.shared.data(for: req)
         } catch {
             throw APIError.networkError(error)
         }
-        try validate(response, data: data, allow204: true)
+
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.serverError(-1)
+        }
+
+        switch http.statusCode {
+        case 200...299: return (data, response)
+        case 401:       throw APIError.unauthorized
+        case 429:       throw APIError.alreadyUsedToday
+        default:        throw APIError.serverError(http.statusCode)
+        }
     }
 
     private func attachAuth(_ req: inout URLRequest) throws {
@@ -227,19 +231,5 @@ actor APIClient {
             throw APIError.unauthorized
         }
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-    }
-
-    private func validate(_ response: URLResponse, data: Data, allow204: Bool = false) throws {
-        guard let http = response as? HTTPURLResponse else {
-            throw APIError.serverError(-1)
-        }
-        switch http.statusCode {
-        case 200...203: return
-        case 204 where allow204: return
-        case 204: throw APIError.noMessage
-        case 401: throw APIError.unauthorized
-        case 429: throw APIError.alreadyUsedToday
-        default: throw APIError.serverError(http.statusCode)
-        }
     }
 }
