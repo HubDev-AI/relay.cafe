@@ -2,6 +2,7 @@ import { describe, it, expect } from 'bun:test'
 import { Hono } from 'hono'
 import { createRateLimitMiddleware } from '../../src/middleware/rateLimit'
 import { InMemoryRateLimiter } from '../../src/lib/adapters/inMemoryRateLimiter'
+import type { IRateLimiter, RateLimitResult, RateLimitTier } from '../../src/lib/interfaces/rateLimiter'
 
 describe('Rate limit middleware', () => {
   it('passes requests under the limit', async () => {
@@ -55,5 +56,21 @@ describe('Rate limit middleware', () => {
       headers: { 'X-Forwarded-For': '1.2.3.4' },
     })
     expect(res.status).toBe(429)
+  })
+
+  it('fails open when limiter throws', async () => {
+    const brokenLimiter: IRateLimiter = {
+      check: async (): Promise<RateLimitResult> => {
+        throw new Error('Redis connection refused')
+      },
+    }
+    const app = new Hono()
+    app.use('*', createRateLimitMiddleware(brokenLimiter, 'global'))
+    app.get('/test', (c) => c.json({ ok: true }))
+
+    const res = await app.request('/test', {
+      headers: { 'X-Forwarded-For': '1.2.3.4' },
+    })
+    expect(res.status).toBe(200)
   })
 })
