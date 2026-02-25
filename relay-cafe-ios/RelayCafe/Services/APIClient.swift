@@ -30,12 +30,7 @@ enum APIError: Error {
 actor APIClient {
     static let shared = APIClient()
 
-    // Force-unwrap is safe: both literals are valid URLs at compile time.
-    #if DEBUG
-    private static let defaultBaseURL = URL(string: "http://localhost:3000")!
-    #else
     private static let defaultBaseURL = URL(string: "https://api.relay.cafe")!
-    #endif
 
     private let baseURL: URL
     private var sessionToken: String?

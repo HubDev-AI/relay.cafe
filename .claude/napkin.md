@@ -12,6 +12,11 @@
 | 2026-02-23 | API | Running `bun run src/app.ts` does nothing — it just exports the Hono app | Real server entry point is `src/index.ts`; `src/app.ts` is just the app factory |
 | 2026-02-23 | git | Copying a directory that contains `.git` causes git to add it as a gitlink (mode 160000) not a plain directory | Remove `.git` from the copy before `git add`, or use `git rm --cached -f` + re-add |
 | 2026-02-23 | git | Created PR targeting `main` instead of `dev`; merged directly to `main` bypassing `dev`; created feature branches from `main` instead of `dev` | `dev` is the working branch. ALWAYS: branch from `dev`, PR to `dev`. Only `dev` → `main` for releases. Never skip `dev`. |
+| 2026-02-24 | croner | Used `Cron(...)` without `new` keyword — crash loop on Railway | `croner` exports a class; must use `new Cron(...)` |
+| 2026-02-24 | Railway | `watchPatterns = ["relay-cafe-api/**"]` in railway.toml caused all deploys to be SKIPPED | watchPatterns are relative to root directory setting. Since root is already `relay-cafe-api`, use `["**"]` not `["relay-cafe-api/**"]` |
+| 2026-02-25 | Redis | Bun.RedisClient `.send()` through external Railway proxy hangs indefinitely — no command timeout, no error, blocks entire request for 2+ min | Use `Promise.race` with `REDIS_TIMEOUT_MS` timeout. Always fail-open on Redis errors. Use Lua EVAL (1 round trip) not sequential calls (4+ round trips). |
+| 2026-02-25 | Redis | Global rate limiter on `*` including `/health` meant health checks hit Redis too — stalled Redis = failed health checks = deploy failures | Don't put rate limiter on health check routes. Use per-route rate limiting only. |
+| 2026-02-25 | deploy | `railway redeploy` invalidates Docker layer cache — builds take 5+ min instead of 30s. Triggered 3 deploys by doing git push + git push dev:main + railway up | Use `railway up` for quick testing. For production, merge via PR and let auto-deploy handle it (uses cached layers). |
 
 ## User Preferences
 - Apple Sign-In only (no phone verification — original IDEA.md had phone SMS but system design superseded it)
@@ -28,9 +33,14 @@
 - `@Observable` + `@MainActor` pattern for SwiftUI ViewModels
 - Bun test with `mock.module()` to mock Apple JWT calls in unit tests
 - `actor APIClient` for thread-safe token management in Swift
+- Redis rate limiting: Lua EVAL script for atomic sliding window in 1 round trip (matches shareal.ink)
+- `Promise.race` with timeout for external Redis calls — fail-open on timeout/error
+- Per-route rate limiting only, no global middleware (keeps health checks fast)
 
 ## Patterns That Don't Work
 - KMS key had no `rotationPeriod` set — config test caught it; always verify infra config with assertions, not assumptions
+- Bun.RedisClient sequential `.send()` calls through external proxy — hangs indefinitely, no built-in timeout
+- Global rate limiter on `*` — blocks health checks and every route with Redis overhead
 
 ## Domain Notes
 - Monorepo at `relay.cafe/` with `relay-cafe-api/` and `relay-cafe-ios/` subdirectories; remote: `git@github.com:HubDev-AI/relay.cafe.git`
