@@ -11,7 +11,6 @@ struct MessageView: View {
     @State private var translationFailed = false
     @State private var appeared = false
     @State private var expired = false
-
     var displayText: String { translatedText ?? message.text }
 
     var body: some View {
@@ -56,6 +55,7 @@ struct MessageView: View {
                             }
                             .font(.system(size: 14))
                             .opacity(0.4)
+
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, 64)

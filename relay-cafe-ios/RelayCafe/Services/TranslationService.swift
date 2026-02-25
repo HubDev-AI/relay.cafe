@@ -11,12 +11,18 @@ struct DetectedLanguage {
 // Returns nil when no translation is needed or language is undetermined.
 @MainActor
 func detectLanguage(in text: String) -> DetectedLanguage? {
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard trimmed.count >= 12 else { return nil }
+
     let recognizer = NLLanguageRecognizer()
-    recognizer.processString(text)
+    recognizer.processString(trimmed)
     guard
         let detected = recognizer.dominantLanguage,
         detected != .undetermined
     else { return nil }
+
+    let hypotheses = recognizer.languageHypotheses(withMaximum: 1)
+    guard let confidence = hypotheses[detected], confidence > 0.5 else { return nil }
 
     // Locale.preferredLanguages returns BCP 47 tags like "en-US", but NLLanguage
     // rawValues are bare codes like "en". Extract just the language component to compare.
