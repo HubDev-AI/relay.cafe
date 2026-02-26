@@ -39,10 +39,11 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         NSFaceIDUsageDescription: "Used for secure authentication."
+        ITSAppUsesNonExemptEncryption: false
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
         CFBundleShortVersionString: "1.0.0"
-        CFBundleVersion: "7"
+        CFBundleVersion: "8"
         APIBaseURL: "https://api.relay.cafe"
         APITimeoutRequest: 5
         APITimeoutResource: 30
