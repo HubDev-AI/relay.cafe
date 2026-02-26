@@ -1,4 +1,5 @@
 import Foundation
+import os
 import UIKit
 
 // MARK: - Models
@@ -30,14 +31,17 @@ enum APIError: Error {
 actor APIClient {
     static let shared = APIClient()
 
-    // Force-unwrap is safe: both literals are valid URLs at compile time.
-    #if DEBUG
-    private static let defaultBaseURL = URL(string: "http://localhost:3000")!
-    #else
-    private static let defaultBaseURL = URL(string: "https://api.relay.cafe")!
-    #endif
+    private static let defaultBaseURL: URL = {
+        let info = Bundle.main.infoDictionary
+        if let urlString = info?["APIBaseURL"] as? String, let url = URL(string: urlString) {
+            return url
+        }
+        return URL(string: "https://api.relay.cafe")!
+    }()
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.relaycafe", category: "APIClient")
 
     private let baseURL: URL
+    private let session: URLSession
     private var sessionToken: String?
     private var tokenExpiresAt: Date?
     private let keychain = KeychainManager()
@@ -54,6 +58,13 @@ actor APIClient {
 
     init(baseURL: URL = APIClient.defaultBaseURL) {
         self.baseURL = baseURL
+        let info = Bundle.main.infoDictionary
+        let requestTimeout = (info?["APITimeoutRequest"] as? NSNumber)?.doubleValue ?? 5
+        let resourceTimeout = (info?["APITimeoutResource"] as? NSNumber)?.doubleValue ?? 30
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = requestTimeout
+        config.timeoutIntervalForResource = resourceTimeout
+        self.session = URLSession(configuration: config)
         sessionToken = try? keychain.load(key: "sessionToken")
         if let expiryString = try? keychain.load(key: "tokenExpiresAt"),
            let ms = Double(expiryString) {
@@ -205,8 +216,14 @@ actor APIClient {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await URLSession.shared.data(for: req)
+            (data, response) = try await session.data(for: req)
         } catch {
+            let nsError = error as NSError
+            if nsError.code == NSURLErrorTimedOut {
+                Self.logger.warning("Request timed out: \(method) \(path)")
+            } else {
+                Self.logger.warning("Network error: \(method) \(path) — \(error.localizedDescription)")
+            }
             throw APIError.networkError(error)
         }
 
