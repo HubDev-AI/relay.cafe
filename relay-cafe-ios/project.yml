@@ -45,7 +45,7 @@ targets:
         CFBundleShortVersionString: "1.0.0"
         CFBundleVersion: "8"
         APIBaseURL: "https://api.relay.cafe"
-        APITimeoutRequest: 5
+        APITimeoutRequest: 10
         APITimeoutResource: 30
 
   RelayCafeTests:
