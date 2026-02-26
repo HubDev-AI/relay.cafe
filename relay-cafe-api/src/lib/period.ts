@@ -21,3 +21,13 @@ export function currentPeriod(): number {
   const seconds = Number(process.env.TOKEN_PERIOD_SECONDS) || 86400
   return Math.floor(Date.now() / (seconds * 1000))
 }
+
+/**
+ * Returns the start of the next token period as a Date.
+ * Used for cooldown expiry after account deletion.
+ */
+export function nextPeriodStart(): Date {
+  const seconds = Number(process.env.TOKEN_PERIOD_SECONDS) || 86400
+  const nextPeriod = currentPeriod() + 1
+  return new Date(nextPeriod * seconds * 1000)
+}

@@ -1,9 +1,10 @@
 import { Hono } from 'hono'
 import { db } from '../db'
-import { users, dailyTokens } from '../db/schema'
+import { users, dailyTokens, deletedAccounts } from '../db/schema'
 import { eq, and } from 'drizzle-orm'
 import { authMiddleware } from '../middleware/auth'
 import { currentPeriod } from '../lib/period'
+import { nextPeriodStart } from '../lib/period'
 
 export const meRouter = new Hono()
 
@@ -29,7 +30,27 @@ meRouter.get('/status', authMiddleware, async (c) => {
 
 meRouter.delete('/', authMiddleware, async (c) => {
   const userId = c.get('userId') as string
-  await db.delete(users).where(eq(users.id, userId))
-  // sessions + dailyTokens cascade on user delete
+
+  // Look up user's appleIdHash before deletion
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+  if (!user) return c.body(null, 204)
+
+  // Insert cooldown + delete user atomically
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(deletedAccounts)
+      .values({
+        appleIdHash: user.appleIdHash,
+        cooldownUntil: nextPeriodStart(),
+      })
+      .onConflictDoUpdate({
+        target: deletedAccounts.appleIdHash,
+        set: { cooldownUntil: nextPeriodStart(), deletedAt: new Date() },
+      })
+
+    // Delete user — sessions + dailyTokens cascade
+    await tx.delete(users).where(eq(users.id, userId))
+  })
+
   return c.body(null, 204)
 })
