@@ -35,19 +35,22 @@ meRouter.delete('/', authMiddleware, async (c) => {
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
   if (!user) return c.body(null, 204)
 
-  // Insert cooldown record (upsert in case of rapid re-deletes)
-  await db
-    .insert(deletedAccounts)
-    .values({
-      appleIdHash: user.appleIdHash,
-      cooldownUntil: nextPeriodStart(),
-    })
-    .onConflictDoUpdate({
-      target: deletedAccounts.appleIdHash,
-      set: { cooldownUntil: nextPeriodStart(), deletedAt: new Date() },
-    })
+  // Insert cooldown + delete user atomically
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(deletedAccounts)
+      .values({
+        appleIdHash: user.appleIdHash,
+        cooldownUntil: nextPeriodStart(),
+      })
+      .onConflictDoUpdate({
+        target: deletedAccounts.appleIdHash,
+        set: { cooldownUntil: nextPeriodStart(), deletedAt: new Date() },
+      })
 
-  // Delete user — sessions + dailyTokens cascade
-  await db.delete(users).where(eq(users.id, userId))
+    // Delete user — sessions + dailyTokens cascade
+    await tx.delete(users).where(eq(users.id, userId))
+  })
+
   return c.body(null, 204)
 })
