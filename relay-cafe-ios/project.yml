@@ -41,6 +41,7 @@ targets:
         NSFaceIDUsageDescription: "Used for secure authentication."
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+        CFBundleShortVersionString: "1.0.0"
         CFBundleVersion: "7"
         APIBaseURL: "https://api.relay.cafe"
         APITimeoutRequest: 5
