@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { createHash } from 'node:crypto'
 import { db } from '../db'
-import { users, sessions } from '../db/schema'
+import { users, sessions, deletedAccounts } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { verifyAppleToken } from '../lib/appleAuth'
 import { authMiddleware } from '../middleware/auth'
@@ -37,6 +37,24 @@ authRouter.post(
     const appleIdHash = createHash('sha256')
       .update(APPLE_ID_SALT + claims.sub)
       .digest('hex')
+
+    // Check cooldown from deleted account
+    const [cooldown] = await db
+      .select()
+      .from(deletedAccounts)
+      .where(eq(deletedAccounts.appleIdHash, appleIdHash))
+      .limit(1)
+
+    if (cooldown) {
+      if (cooldown.cooldownUntil > new Date()) {
+        return c.json({
+          error: 'cooldown',
+          cooldownUntil: cooldown.cooldownUntil.getTime(),
+        }, 403)
+      }
+      // Expired cooldown — clean up and proceed
+      await db.delete(deletedAccounts).where(eq(deletedAccounts.appleIdHash, appleIdHash))
+    }
 
     // Transaction: upsert user + create session atomically.
     // Prevents race where concurrent sign-ins create orphaned rows or

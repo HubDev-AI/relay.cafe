@@ -21,6 +21,7 @@ struct MessageResponse: Codable, Equatable, Identifiable {
 enum APIError: Error {
     case unauthorized
     case alreadyUsedToday
+    case cooldown(until: Date)
     case networkError(Error)
     case serverError(Int)
     case decodingError(Error)
@@ -236,6 +237,14 @@ actor APIClient {
         switch http.statusCode {
         case 200...299: return (data, response)
         case 401:       throw APIError.unauthorized
+        case 403:
+            struct CooldownResponse: Decodable { let error: String; let cooldownUntil: Double? }
+            if let cooldown = try? JSONDecoder().decode(CooldownResponse.self, from: data),
+               cooldown.error == "cooldown",
+               let ms = cooldown.cooldownUntil {
+                throw APIError.cooldown(until: Date(timeIntervalSince1970: ms / 1000))
+            }
+            throw APIError.serverError(403)
         case 429:       throw APIError.alreadyUsedToday
         default:        throw APIError.serverError(http.statusCode)
         }
