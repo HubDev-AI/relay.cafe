@@ -24,6 +24,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: cafe.relay.app
         INFOPLIST_FILE: RelayCafe/Info.plist
         CODE_SIGN_ENTITLEMENTS: RelayCafe/RelayCafe.entitlements
+        DEVELOPMENT_TEAM: 6QTKNR29L2
         SWIFT_VERSION: "6.0"
     info:
       path: RelayCafe/Info.plist
