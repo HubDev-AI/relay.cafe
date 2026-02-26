@@ -23,6 +23,12 @@ export const dailyTokens = pgTable('daily_tokens', {
   pk: primaryKey({ columns: [t.userId, t.date] }),
 }))
 
+export const deletedAccounts = pgTable('deleted_accounts', {
+  appleIdHash: text('apple_id_hash').primaryKey(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }).notNull().defaultNow(),
+  cooldownUntil: timestamp('cooldown_until', { withTimezone: true }).notNull(),
+})
+
 export const messages = pgTable('messages', {
   id: uuid('id').primaryKey().defaultRandom(),
   ciphertext: text('ciphertext').notNull(),
