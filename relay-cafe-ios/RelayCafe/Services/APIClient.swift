@@ -98,7 +98,7 @@ actor APIClient {
             "identityToken": identityToken,
         ]
         struct Response: Codable { let sessionToken: String; let expiresAt: Double }
-        let response: Response = try await post("/v1/auth/apple", body: body, requiresAuth: false)
+        let response: Response = try await post("/v1/auth/apple", body: body, requiresAuth: false, timeout: 30)
         try setToken(
             response.sessionToken,
             expiresAt: Date(timeIntervalSince1970: response.expiresAt / 1000)
@@ -179,9 +179,9 @@ actor APIClient {
     }
 
     private func post<T: Decodable>(
-        _ path: String, body: [String: Any], requiresAuth: Bool = true
+        _ path: String, body: [String: Any], requiresAuth: Bool = true, timeout: TimeInterval? = nil
     ) async throws -> T {
-        let (data, _) = try await request(path, method: "POST", body: body, requiresAuth: requiresAuth)
+        let (data, _) = try await request(path, method: "POST", body: body, requiresAuth: requiresAuth, timeout: timeout)
         do {
             return try decoder.decode(T.self, from: data)
         } catch {
@@ -203,10 +203,12 @@ actor APIClient {
         _ path: String,
         method: String,
         body: [String: Any]? = nil,
-        requiresAuth: Bool = true
+        requiresAuth: Bool = true,
+        timeout: TimeInterval? = nil
     ) async throws -> (Data, URLResponse) {
         var req = URLRequest(url: baseURL.appendingPathComponent(path))
         req.httpMethod = method
+        if let timeout { req.timeoutInterval = timeout }
         if let body {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
             req.httpBody = try JSONSerialization.data(withJSONObject: body)

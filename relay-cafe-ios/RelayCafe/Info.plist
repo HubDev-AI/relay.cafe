@@ -5,7 +5,7 @@
 	<key>APIBaseURL</key>
 	<string>https://api.relay.cafe</string>
 	<key>APITimeoutRequest</key>
-	<integer>5</integer>
+	<integer>10</integer>
 	<key>APITimeoutResource</key>
 	<integer>30</integer>
 	<key>CFBundleDevelopmentRegion</key>
