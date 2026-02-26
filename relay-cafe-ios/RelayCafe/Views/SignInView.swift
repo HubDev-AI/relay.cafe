@@ -63,6 +63,17 @@ struct SignInView: View {
                         identityToken: token
                     )
                     await MainActor.run { vm.didSignIn() }
+                } catch APIError.cooldown(let until) {
+                    await MainActor.run {
+                        let formatter = DateFormatter()
+                        formatter.dateStyle = .none
+                        formatter.timeStyle = .short
+                        if Calendar.current.isDateInTomorrow(until) || Calendar.current.isDateInToday(until) {
+                            self.error = "You can sign in again tomorrow."
+                        } else {
+                            self.error = "You can sign in again at \(formatter.string(from: until))."
+                        }
+                    }
                 } catch {
                     await MainActor.run {
                         self.error = "Unable to sign in.\nPlease try again."
