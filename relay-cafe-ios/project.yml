@@ -40,6 +40,10 @@ targets:
         NSFaceIDUsageDescription: "Used for secure authentication."
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+        CFBundleVersion: "7"
+        APIBaseURL: "https://api.relay.cafe"
+        APITimeoutRequest: 5
+        APITimeoutResource: 30
 
   RelayCafeTests:
     type: bundle.unit-test
