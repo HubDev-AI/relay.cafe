@@ -67,7 +67,7 @@ messagesRouter.post('/', createRateLimitMiddleware(rateLimiter, 'messages'), asy
 
     return c.json({ ok: true }, 201)
   } catch (err) {
-    captureError(err, { route: 'POST /messages', action: 'encrypt-and-insert', userId })
+    captureError(err, { route: 'POST /messages', action: 'encrypt-and-insert' })
     // Roll back send token so user can retry
     try {
       await db
@@ -80,7 +80,7 @@ messagesRouter.post('/', createRateLimitMiddleware(rateLimiter, 'messages'), asy
           ),
         )
     } catch (rollbackErr) {
-      captureError(rollbackErr, { route: 'POST /messages', action: 'send-token-rollback', userId })
+      captureError(rollbackErr, { route: 'POST /messages', action: 'send-token-rollback' })
     }
     return c.json({ error: 'Unable to send message.' }, 500)
   }
@@ -168,7 +168,7 @@ messagesRouter.get('/today', createRateLimitMiddleware(rateLimiter, 'messages'),
 
     return c.json(result)
   } catch (err) {
-    captureError(err, { route: 'GET /messages/today', action: 'decrypt-and-deliver', userId })
+    captureError(err, { route: 'GET /messages/today', action: 'decrypt-and-deliver' })
     // Decrypt or KMS failure — transaction rolled back, message preserved.
     // Roll back receive token so user can try again.
     try {
@@ -182,7 +182,7 @@ messagesRouter.get('/today', createRateLimitMiddleware(rateLimiter, 'messages'),
           ),
         )
     } catch (rollbackErr) {
-      captureError(rollbackErr, { route: 'GET /messages/today', action: 'receive-token-rollback', userId })
+      captureError(rollbackErr, { route: 'GET /messages/today', action: 'receive-token-rollback' })
     }
     return c.json({ error: 'Unable to process message.' }, 500)
   }
