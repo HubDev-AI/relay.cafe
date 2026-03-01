@@ -22,6 +22,7 @@ enum APIError: Error {
     case unauthorized
     case alreadyUsedToday
     case cooldown(until: Date)
+    case suspended
     case networkError(Error)
     case serverError(Int)
     case decodingError(Error)
@@ -133,6 +134,16 @@ actor APIClient {
         clearToken()
     }
 
+    // MARK: Moderation
+
+    func reportMessage(id: String) async throws {
+        try await postEmpty("/v1/messages/\(id)/report", body: [:])
+    }
+
+    func blockSender(messageId: String) async throws {
+        try await postEmpty("/v1/messages/\(messageId)/block", body: [:])
+    }
+
     // MARK: Telemetry
 
     func reportTranslationEvent(
@@ -238,11 +249,14 @@ actor APIClient {
         case 200...299: return (data, response)
         case 401:       throw APIError.unauthorized
         case 403:
-            struct CooldownResponse: Decodable { let error: String; let cooldownUntil: Double? }
-            if let cooldown = try? JSONDecoder().decode(CooldownResponse.self, from: data),
-               cooldown.error == "cooldown",
-               let ms = cooldown.cooldownUntil {
-                throw APIError.cooldown(until: Date(timeIntervalSince1970: ms / 1000))
+            struct ForbiddenResponse: Decodable { let error: String; let cooldownUntil: Double? }
+            if let body = try? JSONDecoder().decode(ForbiddenResponse.self, from: data) {
+                if body.error == "cooldown", let ms = body.cooldownUntil {
+                    throw APIError.cooldown(until: Date(timeIntervalSince1970: ms / 1000))
+                }
+                if body.error.contains("suspended") {
+                    throw APIError.suspended
+                }
             }
             throw APIError.serverError(403)
         case 429:       throw APIError.alreadyUsedToday
