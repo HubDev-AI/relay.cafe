@@ -56,15 +56,20 @@ struct HomeView: View {
         let used = homeVM.status?.sendUsed == true
         return VStack(spacing: 8) {
             Button("Write today's message") {
-                if !used { homeVM.showCompose = true }
+                if !used && !homeVM.isSuspended { homeVM.showCompose = true }
             }
             .font(.system(size: 17, weight: .regular))
             .buttonStyle(.plain)
-            .opacity(used ? 0.62 : 1.0)
-            .disabled(used)
+            .opacity(used || homeVM.isSuspended ? 0.62 : 1.0)
+            .disabled(used || homeVM.isSuspended)
             .accessibilityIdentifier("home.sendButton")
 
-            if used {
+            if homeVM.isSuspended {
+                Text("Your account has been suspended\nfor violating community guidelines.")
+                    .font(.system(size: 13))
+                    .opacity(0.3)
+                    .multilineTextAlignment(.center)
+            } else if used {
                 Text("You've already sent today.")
                     .font(.system(size: 13))
                     .opacity(0.4)
@@ -98,7 +103,16 @@ struct HomeView: View {
 
             // Sub-label: stable height, content varies
             Group {
-                if used {
+                if !homeVM.isSuspended, let notice = homeVM.moderationNotice {
+                    Text(notice)
+                        .opacity(0.5)
+                        .onAppear {
+                            Task {
+                                try? await Task.sleep(for: .seconds(3))
+                                homeVM.clearModerationNotice()
+                            }
+                        }
+                } else if used {
                     Text("You've already received today.")
                         .opacity(0.4)
                         .accessibilityIdentifier("home.receiveUsedLabel")
