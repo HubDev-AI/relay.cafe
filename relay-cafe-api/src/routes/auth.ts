@@ -38,28 +38,59 @@ authRouter.post(
       .update(APPLE_ID_SALT + claims.sub)
       .digest('hex')
 
-    // Check cooldown from deleted account
-    const [cooldown] = await db
-      .select()
-      .from(deletedAccounts)
-      .where(eq(deletedAccounts.appleIdHash, appleIdHash))
-      .limit(1)
-
-    if (cooldown) {
-      if (cooldown.cooldownUntil > new Date()) {
-        return c.json({
-          error: 'cooldown',
-          cooldownUntil: cooldown.cooldownUntil.getTime(),
-        }, 403)
-      }
-      // Expired cooldown — clean up and proceed
-      await db.delete(deletedAccounts).where(eq(deletedAccounts.appleIdHash, appleIdHash))
-    }
-
-    // Transaction: upsert user + create session atomically.
-    // Prevents race where concurrent sign-ins create orphaned rows or
-    // hit unique-constraint errors instead of gracefully reusing the user.
+    // Check deleted account for cooldown + moderation carry-forward
+    // Entire flow in one transaction to prevent double-restoration
     const result = await db.transaction(async (tx) => {
+      const [deleted] = await tx
+        .select()
+        .from(deletedAccounts)
+        .where(eq(deletedAccounts.appleIdHash, appleIdHash))
+        .limit(1)
+
+      if (deleted) {
+        if (deleted.cooldownUntil > new Date()) {
+          return {
+            cooldown: true,
+            cooldownUntil: deleted.cooldownUntil.getTime(),
+          } as const
+        }
+
+        // Carry forward only if suspension is still active.
+        // Intentional: if suspension expired, user gets a clean start (strikeCount reset).
+        // Strike decay already handles gradual reset during active usage.
+        const carryForward = deleted.suspensionUntil && deleted.suspensionUntil > new Date()
+          ? { suspensionUntil: deleted.suspensionUntil, strikeCount: deleted.strikeCount }
+          : null
+
+        // Clean up deleted_accounts row
+        await tx.delete(deletedAccounts).where(eq(deletedAccounts.appleIdHash, appleIdHash))
+
+        // Create or reuse user with carried-forward moderation state
+        const [existingUser] = await tx.select().from(users).where(eq(users.appleIdHash, appleIdHash)).limit(1)
+        const user = existingUser ?? (await tx.insert(users).values({
+          appleIdHash,
+          ...(carryForward ?? {}),
+        }).returning())[0]
+        if (!user) return null
+
+        // If existing user found and we have carry-forward state, apply it
+        if (existingUser && carryForward) {
+          await tx.update(users).set(carryForward).where(eq(users.id, user.id))
+        }
+
+        const rawToken = generateToken()
+        const tokenHash = hashToken(rawToken)
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        const [session] = await tx
+          .insert(sessions)
+          .values({ userId: user.id, tokenHash, expiresAt })
+          .returning()
+        if (!session) return null
+
+        return { sessionToken: rawToken, expiresAt: expiresAt.getTime() }
+      }
+
+      // No deleted account — normal sign-in flow
       const [existingUser] = await tx.select().from(users).where(eq(users.appleIdHash, appleIdHash)).limit(1)
       const user = existingUser ?? (await tx.insert(users).values({ appleIdHash }).returning())[0]
       if (!user) return null
@@ -69,11 +100,7 @@ authRouter.post(
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       const [session] = await tx
         .insert(sessions)
-        .values({
-          userId: user.id,
-          tokenHash,
-          expiresAt,
-        })
+        .values({ userId: user.id, tokenHash, expiresAt })
         .returning()
       if (!session) return null
 
@@ -82,6 +109,12 @@ authRouter.post(
 
     if (!result) {
       return c.json({ error: 'Failed to create session' }, 500)
+    }
+    if ('cooldown' in result) {
+      return c.json({
+        error: 'cooldown',
+        cooldownUntil: result.cooldownUntil,
+      }, 403)
     }
 
     return c.json(result)

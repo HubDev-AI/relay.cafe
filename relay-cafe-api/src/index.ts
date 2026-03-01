@@ -30,7 +30,7 @@ new Cron('*/10 * * * *', async () => {
 
 new Cron('*/10 * * * *', async () => {
   try {
-    const result = await db.execute(sql`DELETE FROM deleted_accounts WHERE cooldown_until <= NOW()`)
+    const result = await db.execute(sql`DELETE FROM deleted_accounts WHERE cooldown_until <= NOW() AND (suspension_until IS NULL OR suspension_until <= NOW())`)
     const count = result.length
     if (count > 0) console.log(`[cleanup] deleted ${count} expired cooldown records`)
   } catch (err) {

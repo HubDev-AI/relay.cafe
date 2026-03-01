@@ -2,7 +2,7 @@ import { test, expect, describe, beforeEach } from 'bun:test'
 import { resetDB, createAuthenticatedUser, createMessage, createUser, createSession } from '../helpers/db'
 import { requestJSON, request } from '../helpers/http'
 import { db } from '../../src/db'
-import { messages, users, deliveryLog, reports, blockedSenders } from '../../src/db/schema'
+import { messages, users, deliveryLog, reports, blockedSenders, deletedAccounts } from '../../src/db/schema'
 import { eq, sql } from 'drizzle-orm'
 
 describe('Moderation', () => {
@@ -94,7 +94,7 @@ describe('Moderation', () => {
     test('suspended user gets 403', async () => {
       const user = await createAuthenticatedUser()
 
-      await db.update(users).set({ suspended: true }).where(eq(users.id, user.userId))
+      await db.update(users).set({ suspensionUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) }).where(eq(users.id, user.userId))
 
       const { status, json } = await requestJSON('/v1/messages', {
         method: 'POST',
@@ -107,7 +107,7 @@ describe('Moderation', () => {
 
     test('suspended user does not consume send token', async () => {
       const user = await createAuthenticatedUser()
-      await db.update(users).set({ suspended: true }).where(eq(users.id, user.userId))
+      await db.update(users).set({ suspensionUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) }).where(eq(users.id, user.userId))
 
       await requestJSON('/v1/messages', {
         method: 'POST',
@@ -210,7 +210,8 @@ describe('Moderation', () => {
       }
 
       const [user] = await db.select().from(users).where(eq(users.id, sender.userId))
-      expect(user!.suspended).toBe(true)
+      expect(user!.suspensionUntil).not.toBeNull()
+      expect(user!.suspensionUntil!.getTime()).toBeGreaterThan(Date.now())
       expect(user!.strikeCount).toBe(3)
 
       await db.execute(sql`UPDATE daily_tokens SET send_used = false WHERE user_id = ${sender.userId}`)
@@ -236,6 +237,33 @@ describe('Moderation', () => {
       expect(allReports[0]!.messageId).toBe(messageId)
       expect(allReports[0]!.reporterUserId).toBe(receiver.userId)
       expect(allReports[0]!.actionTaken).toBe('removed')
+    })
+
+    test('strikes decay after 30 days — old strikes reset to 1', async () => {
+      const sender = await createAuthenticatedUser()
+      const receiver1 = await createAuthenticatedUser()
+
+      // Direct DB state injection for test setup — bypasses moderation logic intentionally
+      await db.update(users).set({
+        strikeCount: 2,
+        lastStrikeAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000),
+      }).where(eq(users.id, sender.userId))
+
+      // Send + receive + report
+      await requestJSON('/v1/messages', {
+        method: 'POST', token: sender.token, body: { text: 'old strikes msg' },
+      })
+      const { json } = await requestJSON<{ id: string }>('/v1/messages/today', {
+        token: receiver1.token,
+      })
+      await requestJSON(`/v1/messages/${json!.id}/report`, {
+        method: 'POST', token: receiver1.token, body: {},
+      })
+
+      // Strike should have reset to 1 (not incremented to 3)
+      const [user] = await db.select().from(users).where(eq(users.id, sender.userId))
+      expect(user!.strikeCount).toBe(1)
+      expect(user!.suspensionUntil).toBeNull()
     })
   })
 
@@ -394,6 +422,47 @@ describe('Moderation', () => {
     })
   })
 
+  // ── Suspension expiry ───────────────────────────────────
+
+  describe('suspension expiry', () => {
+    test('expired suspension allows sending again', async () => {
+      const user = await createAuthenticatedUser()
+
+      // Direct DB state injection for test setup — bypasses moderation logic intentionally
+      await db.update(users).set({
+        suspensionUntil: new Date(Date.now() - 1000),
+        strikeCount: 3,
+      }).where(eq(users.id, user.userId))
+
+      const { status } = await requestJSON('/v1/messages', {
+        method: 'POST',
+        token: user.token,
+        body: { text: 'I am free again' },
+      })
+      expect(status).toBe(201)
+    })
+  })
+
+  // ── UUID validation ────────────────────────────────────
+
+  describe('UUID validation', () => {
+    test('report with invalid UUID returns 404', async () => {
+      const user = await createAuthenticatedUser()
+      const { status } = await requestJSON('/v1/messages/not-a-uuid/report', {
+        method: 'POST', token: user.token, body: {},
+      })
+      expect(status).toBe(404)
+    })
+
+    test('block with invalid UUID returns 404', async () => {
+      const user = await createAuthenticatedUser()
+      const { status } = await requestJSON('/v1/messages/not-a-uuid/block', {
+        method: 'POST', token: user.token, body: {},
+      })
+      expect(status).toBe(404)
+    })
+  })
+
   // ── Account deletion cascades ────────────────────────────
 
   describe('account deletion with moderation data', () => {
@@ -456,6 +525,79 @@ describe('Moderation', () => {
       expect(keys).not.toContain('apple_id_hash')
       expect(keys).not.toContain('appleIdHash')
       expect(keys.sort()).toEqual(['expiresAt', 'id', 'text'])
+    })
+  })
+
+  // ── Suspension carry-forward across account deletion ───
+
+  describe('suspension carry-forward across account deletion', () => {
+    test('reports survive sender account deletion (SET NULL)', async () => {
+      const sender = await createAuthenticatedUser()
+      const receiver = await createAuthenticatedUser()
+
+      // Send + receive + report
+      await requestJSON('/v1/messages', {
+        method: 'POST', token: sender.token, body: { text: 'will be reported' },
+      })
+      const { json } = await requestJSON<{ id: string }>('/v1/messages/today', {
+        token: receiver.token,
+      })
+      await requestJSON(`/v1/messages/${json!.id}/report`, {
+        method: 'POST', token: receiver.token, body: {},
+      })
+
+      // Sender deletes account
+      await requestJSON('/v1/me', { method: 'DELETE', token: sender.token })
+
+      // Report should still exist with sender_user_id = NULL
+      const allReports = await db.select().from(reports)
+      expect(allReports.length).toBe(1)
+      expect(allReports[0]!.senderUserId).toBeNull()
+      expect(allReports[0]!.reporterUserId).toBe(receiver.userId)
+    })
+
+    test('reports survive reporter account deletion (SET NULL)', async () => {
+      const sender = await createAuthenticatedUser()
+      const receiver = await createAuthenticatedUser()
+
+      // Send + receive + report
+      await requestJSON('/v1/messages', {
+        method: 'POST', token: sender.token, body: { text: 'will be reported' },
+      })
+      const { json } = await requestJSON<{ id: string }>('/v1/messages/today', {
+        token: receiver.token,
+      })
+      await requestJSON(`/v1/messages/${json!.id}/report`, {
+        method: 'POST', token: receiver.token, body: {},
+      })
+
+      // Reporter deletes account
+      await requestJSON('/v1/me', { method: 'DELETE', token: receiver.token })
+
+      // Report should still exist with reporter_user_id = NULL
+      const allReports = await db.select().from(reports)
+      expect(allReports.length).toBe(1)
+      expect(allReports[0]!.reporterUserId).toBeNull()
+      expect(allReports[0]!.senderUserId).toBe(sender.userId)
+    })
+
+    test('moderation state saved in deleted_accounts on deletion', async () => {
+      const user = await createAuthenticatedUser()
+
+      // Direct DB state injection for test setup — bypasses moderation logic intentionally
+      const futureDate = new Date(Date.now() + 20 * 24 * 60 * 60 * 1000)
+      await db.update(users).set({
+        strikeCount: 3,
+        suspensionUntil: futureDate,
+      }).where(eq(users.id, user.userId))
+
+      // Delete account
+      await requestJSON('/v1/me', { method: 'DELETE', token: user.token })
+
+      // Verify moderation state saved in deleted_accounts
+      const [deleted] = await db.select().from(deletedAccounts)
+      expect(deleted!.strikeCount).toBe(3)
+      expect(deleted!.suspensionUntil).not.toBeNull()
     })
   })
 })
