@@ -31,24 +31,43 @@ meRouter.get('/status', authMiddleware, async (c) => {
 meRouter.delete('/', authMiddleware, async (c) => {
   const userId = c.get('userId')
 
-  // Look up user's appleIdHash before deletion
-  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+  // Look up user before deletion
+  const [user] = await db
+    .select({
+      appleIdHash: users.appleIdHash,
+      strikeCount: users.strikeCount,
+      suspensionUntil: users.suspensionUntil,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
   if (!user) return c.body(null, 204)
 
-  // Insert cooldown + delete user atomically
+  // Insert cooldown (+ moderation state if applicable) + delete user atomically
   await db.transaction(async (tx) => {
+    const hasModState = user.strikeCount > 0 || (user.suspensionUntil && user.suspensionUntil > new Date())
+
     await tx
       .insert(deletedAccounts)
       .values({
         appleIdHash: user.appleIdHash,
         cooldownUntil: nextPeriodStart(),
+        strikeCount: hasModState ? user.strikeCount : 0,
+        suspensionUntil: hasModState ? user.suspensionUntil : null,
       })
       .onConflictDoUpdate({
         target: deletedAccounts.appleIdHash,
-        set: { cooldownUntil: nextPeriodStart(), deletedAt: new Date() },
+        set: {
+          cooldownUntil: nextPeriodStart(),
+          deletedAt: new Date(),
+          // Always set moderation fields explicitly — prevents stale state from prior row
+          strikeCount: hasModState ? user.strikeCount : 0,
+          suspensionUntil: hasModState ? user.suspensionUntil : null,
+        },
       })
 
-    // Delete user — sessions + dailyTokens cascade
+    // Delete user — sessions, dailyTokens, messages, deliveryLog, blockedSenders cascade
+    // Reports get SET NULL (audit trail preserved)
     await tx.delete(users).where(eq(users.id, userId))
   })
 
