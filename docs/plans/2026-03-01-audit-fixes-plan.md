@@ -60,16 +60,16 @@ ALTER TABLE deleted_accounts ADD COLUMN suspension_until TIMESTAMPTZ;
 ALTER TABLE reports ALTER COLUMN reporter_user_id DROP NOT NULL;
 ALTER TABLE reports ALTER COLUMN sender_user_id DROP NOT NULL;
 
-ALTER TABLE reports DROP CONSTRAINT reports_reporter_user_id_users_id_fk;
+ALTER TABLE reports DROP CONSTRAINT IF EXISTS reports_reporter_user_id_users_id_fk;
 ALTER TABLE reports ADD CONSTRAINT reports_reporter_user_id_users_id_fk
   FOREIGN KEY (reporter_user_id) REFERENCES users(id) ON DELETE SET NULL;
 
-ALTER TABLE reports DROP CONSTRAINT reports_sender_user_id_users_id_fk;
+ALTER TABLE reports DROP CONSTRAINT IF EXISTS reports_sender_user_id_users_id_fk;
 ALTER TABLE reports ADD CONSTRAINT reports_sender_user_id_users_id_fk
   FOREIGN KEY (sender_user_id) REFERENCES users(id) ON DELETE SET NULL;
 ```
 
-**Important:** Before running on production, verify constraint names:
+**Important:** `IF EXISTS` prevents failure if constraint names differ. Before running on production, verify actual names:
 ```sql
 SELECT constraint_name FROM information_schema.table_constraints WHERE table_name = 'reports';
 ```
@@ -279,28 +279,33 @@ with:
 
 ```typescript
       // Atomic strike decay + increment + suspension in one query
+      // Uses CTE to compute new_strike_count once, avoiding duplicated CASE
+      // Uses N * INTERVAL '1 day' instead of sql.raw() for safe parameterization
       const [updated] = await tx.execute<{ strike_count: number; suspension_until: Date | null }>(sql`
-        UPDATE users SET
-          strike_count = CASE
-            WHEN last_strike_at IS NULL THEN 1
-            WHEN last_strike_at < NOW() - INTERVAL '${sql.raw(String(STRIKE_DECAY_DAYS))} days' THEN 1
-            ELSE strike_count + 1
-          END,
+        WITH new_strikes AS (
+          SELECT id,
+            CASE
+              WHEN last_strike_at IS NULL THEN 1
+              WHEN last_strike_at < NOW() - ${STRIKE_DECAY_DAYS} * INTERVAL '1 day' THEN 1
+              ELSE strike_count + 1
+            END AS new_count
+          FROM users
+          WHERE id = ${delivery.senderUserId}
+        )
+        UPDATE users u SET
+          strike_count = ns.new_count,
           last_strike_at = NOW(),
           suspension_until = CASE
-            WHEN (CASE
-              WHEN last_strike_at IS NULL THEN 1
-              WHEN last_strike_at < NOW() - INTERVAL '${sql.raw(String(STRIKE_DECAY_DAYS))} days' THEN 1
-              ELSE strike_count + 1
-            END) >= ${STRIKE_THRESHOLD}
+            WHEN ns.new_count >= ${STRIKE_THRESHOLD}
             THEN GREATEST(
-              COALESCE(suspension_until, '1970-01-01'::timestamptz),
-              NOW() + INTERVAL '${sql.raw(String(SUSPENSION_DURATION_DAYS))} days'
+              COALESCE(u.suspension_until, '1970-01-01'::timestamptz),
+              NOW() + ${SUSPENSION_DURATION_DAYS} * INTERVAL '1 day'
             )
-            ELSE suspension_until
+            ELSE u.suspension_until
           END
-        WHERE id = ${delivery.senderUserId}
-        RETURNING strike_count, suspension_until
+        FROM new_strikes ns
+        WHERE u.id = ns.id
+        RETURNING u.strike_count, u.suspension_until
       `)
 
       if (!updated) {
