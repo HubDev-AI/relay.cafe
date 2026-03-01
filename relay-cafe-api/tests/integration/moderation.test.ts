@@ -2,7 +2,7 @@ import { test, expect, describe, beforeEach } from 'bun:test'
 import { resetDB, createAuthenticatedUser, createMessage, createUser, createSession } from '../helpers/db'
 import { requestJSON, request } from '../helpers/http'
 import { db } from '../../src/db'
-import { messages, users, deliveryLog, reports, blockedSenders } from '../../src/db/schema'
+import { messages, users, deliveryLog, reports, blockedSenders, deletedAccounts } from '../../src/db/schema'
 import { eq, sql } from 'drizzle-orm'
 
 describe('Moderation', () => {
@@ -94,7 +94,7 @@ describe('Moderation', () => {
     test('suspended user gets 403', async () => {
       const user = await createAuthenticatedUser()
 
-      await db.update(users).set({ suspended: true }).where(eq(users.id, user.userId))
+      await db.update(users).set({ suspensionUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) }).where(eq(users.id, user.userId))
 
       const { status, json } = await requestJSON('/v1/messages', {
         method: 'POST',
@@ -107,7 +107,7 @@ describe('Moderation', () => {
 
     test('suspended user does not consume send token', async () => {
       const user = await createAuthenticatedUser()
-      await db.update(users).set({ suspended: true }).where(eq(users.id, user.userId))
+      await db.update(users).set({ suspensionUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) }).where(eq(users.id, user.userId))
 
       await requestJSON('/v1/messages', {
         method: 'POST',
@@ -210,7 +210,8 @@ describe('Moderation', () => {
       }
 
       const [user] = await db.select().from(users).where(eq(users.id, sender.userId))
-      expect(user!.suspended).toBe(true)
+      expect(user!.suspensionUntil).not.toBeNull()
+      expect(user!.suspensionUntil!.getTime()).toBeGreaterThan(Date.now())
       expect(user!.strikeCount).toBe(3)
 
       await db.execute(sql`UPDATE daily_tokens SET send_used = false WHERE user_id = ${sender.userId}`)

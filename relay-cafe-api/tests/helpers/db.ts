@@ -1,5 +1,5 @@
 import { db } from '../../src/db'
-import { users, sessions, dailyTokens, messages, deliveryLog, reports, blockedSenders } from '../../src/db/schema'
+import { users, sessions, dailyTokens, messages, deliveryLog, reports, blockedSenders, deletedAccounts } from '../../src/db/schema'
 import { sql } from 'drizzle-orm'
 import { randomUUID, createHash } from 'node:crypto'
 import { generateToken, hashToken } from '../../src/lib/sessionToken'
@@ -11,6 +11,7 @@ export async function resetDB() {
   // Order matters: FK dependencies (children before parents)
   await db.delete(reports)
   await db.delete(deliveryLog)
+  await db.delete(deletedAccounts)
   await db.delete(blockedSenders)
   await db.delete(messages)
   await db.delete(dailyTokens)
