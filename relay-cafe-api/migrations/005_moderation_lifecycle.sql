@@ -17,10 +17,13 @@ ALTER TABLE deleted_accounts ADD COLUMN suspension_until TIMESTAMPTZ;
 ALTER TABLE reports ALTER COLUMN reporter_user_id DROP NOT NULL;
 ALTER TABLE reports ALTER COLUMN sender_user_id DROP NOT NULL;
 
+-- Drop both possible naming conventions (Drizzle vs PostgreSQL default)
 ALTER TABLE reports DROP CONSTRAINT IF EXISTS reports_reporter_user_id_users_id_fk;
+ALTER TABLE reports DROP CONSTRAINT IF EXISTS reports_reporter_user_id_fkey;
 ALTER TABLE reports ADD CONSTRAINT reports_reporter_user_id_users_id_fk
   FOREIGN KEY (reporter_user_id) REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE reports DROP CONSTRAINT IF EXISTS reports_sender_user_id_users_id_fk;
+ALTER TABLE reports DROP CONSTRAINT IF EXISTS reports_sender_user_id_fkey;
 ALTER TABLE reports ADD CONSTRAINT reports_sender_user_id_users_id_fk
   FOREIGN KEY (sender_user_id) REFERENCES users(id) ON DELETE SET NULL;
