@@ -9,6 +9,8 @@ import { captureError } from '../lib/logger'
 import { checkContent } from '../lib/contentFilter'
 import { createRateLimitMiddleware } from '../middleware/rateLimit'
 import { rateLimiter } from '../lib/container'
+import { STRIKE_THRESHOLD, SUSPENSION_DURATION_DAYS, STRIKE_DECAY_DAYS } from '../lib/moderationConfig'
+import { validate as uuidValidate } from 'uuid'
 
 // authMiddleware is applied by app.ts when mounting this router
 export const messagesRouter = new Hono<{ Variables: { userId: string } }>()
@@ -246,12 +248,34 @@ messagesRouter.post('/:id/report', createRateLimitMiddleware(rateLimiter, 'messa
         return { alreadyReported: true } as const
       }
 
-      // Atomic strike increment
-      const [updated] = await tx.execute<{ strike_count: number }>(sql`
-        UPDATE users
-        SET strike_count = strike_count + 1, last_strike_at = NOW()
-        WHERE id = ${delivery.senderUserId}
-        RETURNING strike_count
+      // Atomic strike decay + increment + suspension in one query
+      // new_count is computed once in CTE to avoid duplicated CASE logic
+      // Uses N * INTERVAL '1 day' instead of sql.raw() for safe parameterization
+      const [updated] = await tx.execute<{ strike_count: number; suspension_until: Date | null }>(sql`
+        WITH new_strikes AS (
+          SELECT id,
+            CASE
+              WHEN last_strike_at IS NULL THEN 1
+              WHEN last_strike_at < NOW() - ${STRIKE_DECAY_DAYS} * INTERVAL '1 day' THEN 1
+              ELSE strike_count + 1
+            END AS new_count
+          FROM users
+          WHERE id = ${delivery.senderUserId}
+        )
+        UPDATE users u SET
+          strike_count = ns.new_count,
+          last_strike_at = NOW(),
+          suspension_until = CASE
+            WHEN ns.new_count >= ${STRIKE_THRESHOLD}
+            THEN GREATEST(
+              COALESCE(u.suspension_until, '1970-01-01'::timestamptz),
+              NOW() + ${SUSPENSION_DURATION_DAYS} * INTERVAL '1 day'
+            )
+            ELSE u.suspension_until
+          END
+        FROM new_strikes ns
+        WHERE u.id = ns.id
+        RETURNING u.strike_count, u.suspension_until
       `)
 
       if (!updated) {
@@ -259,16 +283,9 @@ messagesRouter.post('/:id/report', createRateLimitMiddleware(rateLimiter, 'messa
       }
 
       const strikeCount = updated.strike_count
-      let actionTaken = 'removed'
-
-      // Suspend if threshold reached
-      if (strikeCount >= 3) {
-        await tx
-          .update(users)
-          .set({ suspended: true })
-          .where(eq(users.id, delivery.senderUserId))
-        actionTaken = 'suspended'
-      }
+      const actionTaken = updated.suspension_until && updated.suspension_until > new Date()
+        ? 'suspended'
+        : 'removed'
 
       // Insert report
       await tx.insert(reports).values({
