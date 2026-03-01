@@ -25,6 +25,11 @@ messagesRouter.post('/', createRateLimitMiddleware(rateLimiter, 'messages'), asy
   const userId = c.get('userId')
   const today = currentPeriod()
 
+  // Content filter runs before transaction — blocked content never touches the DB or consumes a token
+  if (checkContent(body.text).blocked) {
+    return c.json({ error: 'This message violates community guidelines.' }, 400)
+  }
+
   try {
     const result = await db.transaction(async (tx) => {
       // 1. Suspension check (first — before token claim)
@@ -60,12 +65,7 @@ messagesRouter.post('/', createRateLimitMiddleware(rateLimiter, 'messages'), asy
         return { alreadySent: true } as const
       }
 
-      // 4. Content filter (pure CPU, inside tx after token claim)
-      if (checkContent(body.text).blocked) {
-        return { filtered: true } as const
-      }
-
-      // 5. Encrypt + insert with sender_user_id
+      // 4. Encrypt + insert with sender_user_id
       const { ciphertext, iv, key } = await encryptMessage(body.text)
       const { encryptedKey, keyVersion } = await wrapKey(key)
 
@@ -89,9 +89,6 @@ messagesRouter.post('/', createRateLimitMiddleware(rateLimiter, 'messages'), asy
     }
     if ('alreadySent' in result && result.alreadySent) {
       return c.json({ error: 'Already sent today.' }, 429)
-    }
-    if ('filtered' in result && result.filtered) {
-      return c.json({ error: 'This message violates community guidelines.' }, 400)
     }
     return c.json({ ok: true }, 201)
   } catch (err) {
