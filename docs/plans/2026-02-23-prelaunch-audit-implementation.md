@@ -18,7 +18,7 @@
 **Step 1: Create branch from dev**
 
 ```bash
-cd /Users/vladimirtrifonov/src/ai/relay.cafe
+cd /Users/me/src/ai/relay.cafe
 git checkout dev
 git pull origin dev
 git checkout -b feature/prelaunch-audit
@@ -280,7 +280,7 @@ Review for:
 - All links are relative (`privacy.html`, `terms.html`) or `mailto:` — no open redirect risk.
 - Structured data (`application/ld+json`) contains only public info — no leaks.
 - `og-image.png` referenced — verify it exists and contains no sensitive metadata.
-- Email address `relay.cafe@pm.me` is public (in footer and legal pages) — intentional.
+- Email address `support@relay.cafe` is public (in footer and legal pages) — intentional.
 
 **Step 2: Audit meta tags**
 
@@ -366,7 +366,7 @@ if (!body?.text || typeof body.text !== 'string' || body.text.trim().length === 
 **Step 4: Run tests**
 
 ```bash
-cd /Users/vladimirtrifonov/src/ai/relay.cafe/relay-cafe-api
+cd /Users/me/src/ai/relay.cafe/relay-cafe-api
 bun test
 ```
 
@@ -621,7 +621,7 @@ git commit -m "docs: add deployment guide with Railway, KMS, DNS, and gotchas"
 ## Task 12: Documentation — Update CLAUDE.md Env Var Names
 
 **Files:**
-- Modify: `/Users/vladimirtrifonov/src/ai/relay.cafe/.claude/CLAUDE.md`
+- Modify: `/Users/me/src/ai/relay.cafe/.claude/CLAUDE.md`
 
 **Step 1: Fix env var names**
 
@@ -682,7 +682,7 @@ git commit -m "docs: update KMS key lifecycle if stale"
 **Step 1: Create workflow directory**
 
 ```bash
-mkdir -p /Users/vladimirtrifonov/src/ai/relay.cafe/.github/workflows
+mkdir -p /Users/me/src/ai/relay.cafe/.github/workflows
 ```
 
 **Step 2: Write workflow file**
@@ -794,7 +794,7 @@ git commit -m "security: add Content-Security-Policy meta tags to landing pages"
 **Step 1: Review all changes**
 
 ```bash
-cd /Users/vladimirtrifonov/src/ai/relay.cafe
+cd /Users/me/src/ai/relay.cafe
 git log --oneline feature/prelaunch-audit..HEAD
 git diff dev...HEAD --stat
 ```
