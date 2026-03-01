@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { db } from '../db'
-import { messages, dailyTokens, users, deliveryLog, blockedSenders, reports } from '../db/schema'
+import { messages, dailyTokens, users, deliveryLog, reports } from '../db/schema'
 import { and, eq, sql } from 'drizzle-orm'
 import { encryptMessage, decryptMessage } from '../lib/crypto'
 import { wrapKey, unwrapKey } from '../lib/kms'
@@ -139,18 +139,19 @@ messagesRouter.get('/today', createRateLimitMiddleware(rateLimiter, 'messages'),
         expires_at: Date
         sender_user_id: string
       }>(sql`
-        SELECT id, ciphertext, encrypted_message_key, kms_key_version, iv, expires_at, sender_user_id
-        FROM messages
-        WHERE expires_at > NOW()
-          AND sender_user_id != ${userId}
-          AND sender_user_id NOT IN (
-            SELECT blocked_sender_user_id
-            FROM blocked_senders
-            WHERE blocker_user_id = ${userId}
+        SELECT m.id, m.ciphertext, m.encrypted_message_key, m.kms_key_version, m.iv, m.expires_at, m.sender_user_id
+        FROM messages m
+        JOIN users sender ON sender.id = m.sender_user_id
+        WHERE m.expires_at > NOW()
+          AND m.sender_user_id != ${userId}
+          AND NOT EXISTS (
+            SELECT 1 FROM blocked_senders bs
+            WHERE bs.blocker_user_id = ${userId}
+              AND bs.blocked_apple_id_hash = sender.apple_id_hash
           )
         ORDER BY RANDOM()
         LIMIT 1
-        FOR UPDATE SKIP LOCKED
+        FOR UPDATE OF m SKIP LOCKED
       `)
 
       const msg = candidates[0]
@@ -299,10 +300,21 @@ messagesRouter.post('/:id/block', createRateLimitMiddleware(rateLimiter, 'messag
     return c.json({ error: 'Not found' }, 404)
   }
 
-  // Insert block — idempotent via ON CONFLICT DO NOTHING
+  // Look up sender's apple_id_hash — blocks persist across account deletion
+  const [sender] = await db
+    .select({ appleIdHash: users.appleIdHash })
+    .from(users)
+    .where(eq(users.id, delivery.senderUserId))
+
+  if (!sender) {
+    // Sender already deleted — nothing to block
+    return c.json({ ok: true })
+  }
+
+  // Insert block by apple_id_hash — idempotent via ON CONFLICT DO NOTHING
   await db.execute(sql`
-    INSERT INTO blocked_senders (blocker_user_id, blocked_sender_user_id)
-    VALUES (${userId}, ${delivery.senderUserId})
+    INSERT INTO blocked_senders (blocker_user_id, blocked_apple_id_hash)
+    VALUES (${userId}, ${sender.appleIdHash})
     ON CONFLICT DO NOTHING
   `)
 

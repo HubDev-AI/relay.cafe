@@ -34,7 +34,7 @@ export const deletedAccounts = pgTable('deleted_accounts', {
 
 export const messages = pgTable('messages', {
   id: uuid('id').primaryKey().defaultRandom(),
-  senderUserId: uuid('sender_user_id').notNull().references(() => users.id),
+  senderUserId: uuid('sender_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   ciphertext: text('ciphertext').notNull(),
   encryptedMessageKey: text('encrypted_message_key').notNull(),
   kmsKeyVersion: text('kms_key_version').notNull(),
@@ -48,8 +48,8 @@ export const messages = pgTable('messages', {
 export const deliveryLog = pgTable('delivery_log', {
   id: uuid('id').primaryKey().defaultRandom(),
   messageId: uuid('message_id').notNull().unique(),
-  senderUserId: uuid('sender_user_id').notNull().references(() => users.id),
-  recipientUserId: uuid('recipient_user_id').notNull().references(() => users.id),
+  senderUserId: uuid('sender_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  recipientUserId: uuid('recipient_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   deliveredAt: timestamp('delivered_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   recipientIdx: index('idx_delivery_recipient').on(t.recipientUserId),
@@ -58,8 +58,8 @@ export const deliveryLog = pgTable('delivery_log', {
 export const reports = pgTable('reports', {
   id: uuid('id').primaryKey().defaultRandom(),
   messageId: uuid('message_id').notNull(),
-  reporterUserId: uuid('reporter_user_id').notNull().references(() => users.id),
-  senderUserId: uuid('sender_user_id').notNull().references(() => users.id),
+  reporterUserId: uuid('reporter_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  senderUserId: uuid('sender_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   actionTaken: text('action_taken').notNull(),
   strikeCountAfter: integer('strike_count_after').notNull(),
   reviewed: boolean('reviewed').notNull().default(false),
@@ -72,9 +72,9 @@ export const reports = pgTable('reports', {
 
 export const blockedSenders = pgTable('blocked_senders', {
   blockerUserId: uuid('blocker_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  blockedSenderUserId: uuid('blocked_sender_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  blockedAppleIdHash: text('blocked_apple_id_hash').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
-  pk: primaryKey({ columns: [t.blockerUserId, t.blockedSenderUserId] }),
-  blockedIdx: index('idx_blocked_sender').on(t.blockedSenderUserId),
+  pk: primaryKey({ columns: [t.blockerUserId, t.blockedAppleIdHash] }),
+  blockedIdx: index('idx_blocked_apple_id_hash').on(t.blockedAppleIdHash),
 }))
