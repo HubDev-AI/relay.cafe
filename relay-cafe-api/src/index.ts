@@ -37,6 +37,16 @@ new Cron('*/10 * * * *', async () => {
   }
 })
 
+new Cron('*/10 * * * *', async () => {
+  try {
+    const result = await db.execute(sql`DELETE FROM delivery_log WHERE delivered_at < NOW() - INTERVAL '48 hours'`)
+    const count = result.length
+    if (count > 0) console.log(`[cleanup] deleted ${count} expired delivery log entries`)
+  } catch (err) {
+    captureError(err, { source: 'cleanup-expired-delivery-log' })
+  }
+})
+
 serve({ fetch: app.fetch, port: 3000 }, () => {
   console.log('relay-cafe-api running on :3000')
 })
