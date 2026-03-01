@@ -17,7 +17,7 @@
 **Files:**
 - Create: `relay-cafe-api/src/lib/moderationConfig.ts`
 - Create: `relay-cafe-api/migrations/005_moderation_lifecycle.sql`
-- Install: `uuid` + `@types/uuid`
+- Install: `uuid`
 
 **Step 1: Create moderation constants**
 
@@ -32,10 +32,10 @@ export const STRIKE_DECAY_DAYS = 30 as const
 **Step 2: Install `uuid` package for validation**
 
 ```bash
-cd relay-cafe-api && bun add uuid && bun add -d @types/uuid
+cd relay-cafe-api && bun add uuid
 ```
 
-This provides `validate` from `uuid` — no custom regex needed.
+This provides `validate` from `uuid` — no custom regex needed. `uuid` ships its own types; do not install `@types/uuid`.
 
 **Step 3: Create migration**
 
@@ -51,7 +51,7 @@ Create `relay-cafe-api/migrations/005_moderation_lifecycle.sql`:
 -- 1. Replace boolean suspended with suspension_until
 ALTER TABLE users ADD COLUMN suspension_until TIMESTAMPTZ;
 UPDATE users SET suspension_until = NOW() + INTERVAL '30 days' WHERE suspended = TRUE;
-ALTER TABLE users DROP COLUMN suspended;
+ALTER TABLE users DROP COLUMN IF EXISTS suspended;
 
 -- 2. Add moderation state to deleted_accounts
 ALTER TABLE deleted_accounts ADD COLUMN strike_count INT NOT NULL DEFAULT 0;
