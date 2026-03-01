@@ -527,4 +527,77 @@ describe('Moderation', () => {
       expect(keys.sort()).toEqual(['expiresAt', 'id', 'text'])
     })
   })
+
+  // ── Suspension carry-forward across account deletion ───
+
+  describe('suspension carry-forward across account deletion', () => {
+    test('reports survive sender account deletion (SET NULL)', async () => {
+      const sender = await createAuthenticatedUser()
+      const receiver = await createAuthenticatedUser()
+
+      // Send + receive + report
+      await requestJSON('/v1/messages', {
+        method: 'POST', token: sender.token, body: { text: 'will be reported' },
+      })
+      const { json } = await requestJSON<{ id: string }>('/v1/messages/today', {
+        token: receiver.token,
+      })
+      await requestJSON(`/v1/messages/${json!.id}/report`, {
+        method: 'POST', token: receiver.token, body: {},
+      })
+
+      // Sender deletes account
+      await requestJSON('/v1/me', { method: 'DELETE', token: sender.token })
+
+      // Report should still exist with sender_user_id = NULL
+      const allReports = await db.select().from(reports)
+      expect(allReports.length).toBe(1)
+      expect(allReports[0]!.senderUserId).toBeNull()
+      expect(allReports[0]!.reporterUserId).toBe(receiver.userId)
+    })
+
+    test('reports survive reporter account deletion (SET NULL)', async () => {
+      const sender = await createAuthenticatedUser()
+      const receiver = await createAuthenticatedUser()
+
+      // Send + receive + report
+      await requestJSON('/v1/messages', {
+        method: 'POST', token: sender.token, body: { text: 'will be reported' },
+      })
+      const { json } = await requestJSON<{ id: string }>('/v1/messages/today', {
+        token: receiver.token,
+      })
+      await requestJSON(`/v1/messages/${json!.id}/report`, {
+        method: 'POST', token: receiver.token, body: {},
+      })
+
+      // Reporter deletes account
+      await requestJSON('/v1/me', { method: 'DELETE', token: receiver.token })
+
+      // Report should still exist with reporter_user_id = NULL
+      const allReports = await db.select().from(reports)
+      expect(allReports.length).toBe(1)
+      expect(allReports[0]!.reporterUserId).toBeNull()
+      expect(allReports[0]!.senderUserId).toBe(sender.userId)
+    })
+
+    test('moderation state saved in deleted_accounts on deletion', async () => {
+      const user = await createAuthenticatedUser()
+
+      // Direct DB state injection for test setup — bypasses moderation logic intentionally
+      const futureDate = new Date(Date.now() + 20 * 24 * 60 * 60 * 1000)
+      await db.update(users).set({
+        strikeCount: 3,
+        suspensionUntil: futureDate,
+      }).where(eq(users.id, user.userId))
+
+      // Delete account
+      await requestJSON('/v1/me', { method: 'DELETE', token: user.token })
+
+      // Verify moderation state saved in deleted_accounts
+      const [deleted] = await db.select().from(deletedAccounts)
+      expect(deleted!.strikeCount).toBe(3)
+      expect(deleted!.suspensionUntil).not.toBeNull()
+    })
+  })
 })
