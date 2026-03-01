@@ -15,6 +15,9 @@
 | 2026-02-24 | croner | Used `Cron(...)` without `new` keyword — crash loop on Railway | `croner` exports a class; must use `new Cron(...)` |
 | 2026-02-24 | Railway | `watchPatterns = ["relay-cafe-api/**"]` in railway.toml caused all deploys to be SKIPPED | watchPatterns are relative to root directory setting. Since root is already `relay-cafe-api`, use `["**"]` not `["relay-cafe-api/**"]` |
 | 2026-02-25 | Redis | Bun.RedisClient `.send()` through external Railway proxy hangs indefinitely — no command timeout, no error, blocks entire request for 2+ min | Use `Promise.race` with `REDIS_TIMEOUT_MS` timeout. Always fail-open on Redis errors. Use Lua EVAL (1 round trip) not sequential calls (4+ round trips). |
+| 2026-02-26 | xcodegen | Running `xcodegen generate` drops `DEVELOPMENT_TEAM` from project.pbxproj if not in project.yml | Always set `DEVELOPMENT_TEAM: 6QTKNR29L2` in project.yml target settings |
+| 2026-02-26 | xcodegen | Added `CFBundleVersion` to project.yml but didn't also set `CFBundleShortVersionString`, causing version to show as `1.0` instead of `1.0.0` | When touching version fields in project.yml, always set BOTH `CFBundleShortVersionString` and `CFBundleVersion` explicitly. Check the existing archive versions for consistency. |
+| 2026-02-26 | self | Made multiple sloppy edits in a row: duplicate SWIFT_VERSION, wrong build number, missing version string, dropped dev team | Before committing project.yml changes, diff the generated Info.plist and project.pbxproj against the previous version to catch regressions |
 | 2026-02-25 | Redis | Global rate limiter on `*` including `/health` meant health checks hit Redis too — stalled Redis = failed health checks = deploy failures | Don't put rate limiter on health check routes. Use per-route rate limiting only. |
 | 2026-02-25 | deploy | `railway redeploy` invalidates Docker layer cache — builds take 5+ min instead of 30s. Triggered 3 deploys by doing git push + git push dev:main + railway up | Use `railway up` for quick testing. For production, merge via PR and let auto-deploy handle it (uses cached layers). |
 
@@ -41,6 +44,16 @@
 - KMS key had no `rotationPeriod` set — config test caught it; always verify infra config with assertions, not assumptions
 - Bun.RedisClient sequential `.send()` calls through external proxy — hangs indefinitely, no built-in timeout
 - Global rate limiter on `*` — blocks health checks and every route with Redis overhead
+
+## Moderation System
+- `users.suspensionUntil` (TIMESTAMPTZ, nullable) replaces boolean `suspended` — auto-expiring suspensions
+- `deletedAccounts` carries `strikeCount` + `suspensionUntil` for moderation persistence across account deletion
+- Reports FKs are SET NULL (not CASCADE) — audit trail preserved when users delete
+- Strike decay: strikes older than 30 days reset to 1 on next report
+- Suspension extension uses GREATEST to never shorten existing suspension
+- Constants in `src/lib/moderationConfig.ts`: STRIKE_THRESHOLD=3, SUSPENSION_DURATION_DAYS=30, STRIKE_DECAY_DAYS=30
+- Test DB is separate: `relaycafe_test` at `localhost:5432` — migrations must be run on both DBs
+- FK constraint names differ between environments (Drizzle vs PostgreSQL default) — use IF EXISTS in migrations
 
 ## Domain Notes
 - Monorepo at `relay.cafe/` with `relay-cafe-api/` and `relay-cafe-ios/` subdirectories; remote: `git@github.com:HubDev-AI/relay.cafe.git`
