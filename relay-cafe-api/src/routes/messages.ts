@@ -11,7 +11,7 @@ import { createRateLimitMiddleware } from '../middleware/rateLimit'
 import { rateLimiter } from '../lib/container'
 
 // authMiddleware is applied by app.ts when mounting this router
-export const messagesRouter = new Hono()
+export const messagesRouter = new Hono<{ Variables: { userId: string } }>()
 
 messagesRouter.post('/', createRateLimitMiddleware(rateLimiter, 'messages'), async (c) => {
   const body = await c.req.json().catch(() => null)
@@ -22,7 +22,7 @@ messagesRouter.post('/', createRateLimitMiddleware(rateLimiter, 'messages'), asy
     return c.json({ error: 'text exceeds 1000 characters' }, 400)
   }
 
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const today = currentPeriod()
 
   try {
@@ -101,7 +101,7 @@ messagesRouter.post('/', createRateLimitMiddleware(rateLimiter, 'messages'), asy
 })
 
 messagesRouter.get('/today', createRateLimitMiddleware(rateLimiter, 'messages'), async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const today = currentPeriod()
 
   // Upsert daily token row
@@ -212,7 +212,7 @@ messagesRouter.get('/today', createRateLimitMiddleware(rateLimiter, 'messages'),
 })
 
 messagesRouter.post('/:id/report', createRateLimitMiddleware(rateLimiter, 'messages'), async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const messageId = c.req.param('id')
 
   // Look up delivery log — can only report messages you received, within 48h
@@ -293,7 +293,7 @@ messagesRouter.post('/:id/report', createRateLimitMiddleware(rateLimiter, 'messa
 })
 
 messagesRouter.post('/:id/block', createRateLimitMiddleware(rateLimiter, 'messages'), async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const messageId = c.req.param('id')
 
   // Look up delivery log — can only block senders of messages you received

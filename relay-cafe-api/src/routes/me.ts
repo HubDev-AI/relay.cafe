@@ -6,13 +6,13 @@ import { authMiddleware } from '../middleware/auth'
 import { currentPeriod } from '../lib/period'
 import { nextPeriodStart } from '../lib/period'
 
-export const meRouter = new Hono()
+export const meRouter = new Hono<{ Variables: { userId: string } }>()
 
 // Token status: query by (userId, currentPeriod).
 // If no row exists for today's period, both tokens are fresh (false).
 // No historical timing comparison — period number is the only input.
 meRouter.get('/status', authMiddleware, async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const today = currentPeriod()
 
   const [tokens] = await db
@@ -29,7 +29,7 @@ meRouter.get('/status', authMiddleware, async (c) => {
 })
 
 meRouter.delete('/', authMiddleware, async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
 
   // Look up user's appleIdHash before deletion
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
