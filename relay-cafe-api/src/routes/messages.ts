@@ -277,3 +277,34 @@ messagesRouter.post('/:id/report', createRateLimitMiddleware(rateLimiter, 'messa
 
   return c.json({ ok: true })
 })
+
+messagesRouter.post('/:id/block', createRateLimitMiddleware(rateLimiter, 'messages'), async (c) => {
+  const userId = c.get('userId') as string
+  const messageId = c.req.param('id')
+
+  // Look up delivery log — can only block senders of messages you received
+  const [delivery] = await db
+    .select({
+      senderUserId: deliveryLog.senderUserId,
+    })
+    .from(deliveryLog)
+    .where(
+      and(
+        eq(deliveryLog.messageId, messageId),
+        eq(deliveryLog.recipientUserId, userId),
+      ),
+    )
+
+  if (!delivery) {
+    return c.json({ error: 'Not found' }, 404)
+  }
+
+  // Insert block — idempotent via ON CONFLICT DO NOTHING
+  await db.execute(sql`
+    INSERT INTO blocked_senders (blocker_user_id, blocked_sender_user_id)
+    VALUES (${userId}, ${delivery.senderUserId})
+    ON CONFLICT DO NOTHING
+  `)
+
+  return c.json({ ok: true })
+})
