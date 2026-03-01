@@ -25,8 +25,8 @@ struct OnboardingView: View {
                 .padding(.bottom, 48)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Messages exist for 24 hours.")
-                    Text("They are never stored.")
+                    Text("Messages are available for 24 hours.")
+                    Text("They are automatically deleted after that.")
                 }
                 .font(.system(size: 18, weight: .regular))
                 .lineSpacing(4)
