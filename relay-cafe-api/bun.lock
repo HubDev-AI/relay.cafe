@@ -4,6 +4,7 @@
     "": {
       "name": "relay-cafe-api",
       "dependencies": {
+        "@2toad/profanity": "^3.2.0",
         "@google-cloud/kms": "^5.4.0",
         "@hono/node-server": "^1.19.9",
         "@sentry/bun": "^10.39.0",
@@ -25,6 +26,8 @@
     },
   },
   "packages": {
+    "@2toad/profanity": ["@2toad/profanity@3.2.0", "", {}, "sha512-1wF0F9SXBS8zsn74ZyDKhClSH+5Tupycq2F1x34+/1YKhrq49ejs+imH8/YIS/JwXoj2oUY+KTpoyOxJeNA2mQ=="],
+
     "@apm-js-collab/code-transformer": ["@apm-js-collab/code-transformer@0.8.2", "", {}, "sha512-YRjJjNq5KFSjDUoqu5pFUWrrsvGOxl6c3bu+uMFc9HNNptZ2rNU/TI2nLw4jnhQNtka972Ee2m3uqbvDQtPeCA=="],
 
     "@apm-js-collab/tracing-hooks": ["@apm-js-collab/tracing-hooks@0.3.1", "", { "dependencies": { "@apm-js-collab/code-transformer": "^0.8.0", "debug": "^4.4.1", "module-details-from-path": "^1.0.4" } }, "sha512-Vu1CbmPURlN5fTboVuKMoJjbO5qcq9fA5YXpskx3dXe/zTBvjODFoerw+69rVBlRLrJpwPqSDqEuJDEKIrTldw=="],

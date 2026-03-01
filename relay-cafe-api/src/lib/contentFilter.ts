@@ -2,63 +2,42 @@
 // Rejects messages containing severe prohibited content.
 // Does NOT log, store, or send rejected message text anywhere.
 
+import { Profanity } from '@2toad/profanity'
+
 // Zero-width characters to strip before matching
 const ZERO_WIDTH = /[\u200B-\u200F\u2028-\u202F\u2060-\u206F\uFEFF]/g
 
 function normalize(text: string): string {
   return text
-    .toLowerCase()
     .replace(ZERO_WIDTH, '')
     .replace(/[^\w\s]/g, '')  // strip punctuation to catch k.i.l.l, f*ck, etc.
     .replace(/\s+/g, ' ')
     .trim()
 }
 
-// Word-boundary patterns for each category.
-// Each pattern uses \b for word boundaries to reduce false positives.
-const PATTERNS: RegExp[] = buildPatterns()
+// @2toad/profanity handles slurs, profanity, and sexual terms out of the box.
+// We add domain-specific phrases it doesn't cover: exploitation, threats, harassment.
+const profanity = new Profanity({ wholeWord: true, grawlix: '****' })
 
-function buildPatterns(): RegExp[] {
-  // Categories per design doc:
-  // 1. Severe slurs (racial, ethnic, homophobic)
-  // 2. Explicit sexual terms
-  // 3. Child exploitation phrases
-  // 4. Explicit violent threats
-  // 5. Extreme harassment
+profanity.addWords([
+  // Child exploitation phrases
+  'child porn', 'kiddie porn', 'cp link',
+  'looking for underage', 'young girls pics', 'young boys pics',
+  'preteen sex', 'loli', 'shota',
 
-  const terms: string[] = [
-    // Category 1: Severe slurs
-    'nigger', 'nigga', 'faggot', 'fag', 'dyke', 'kike', 'spic', 'wetback',
-    'chink', 'gook', 'raghead', 'towelhead', 'tranny',
+  // Explicit violent threats
+  'i will kill you', 'im going to kill you', 'ill kill you',
+  'i will murder you', 'im going to murder you',
+  'kill yourself', 'kys',
 
-    // Category 2: Explicit sexual (most severe only)
-    'child porn', 'kiddie porn', 'cp link',
-
-    // Category 3: Child exploitation phrases
-    'looking for underage', 'young girls pics', 'young boys pics',
-    'preteen sex', 'loli', 'shota',
-
-    // Category 4: Explicit violent threats
-    'i will kill you', 'im going to kill you', 'ill kill you',
-    'i will murder you', 'im going to murder you',
-    'kill yourself', 'kys',
-
-    // Category 5: Extreme harassment
-    'i hope you die', 'go die', 'drink bleach', 'neck yourself',
-  ]
-
-  return terms.map(term => {
-    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    return new RegExp(`\\b${escaped}\\b`, 'i')
-  })
-}
+  // Extreme harassment
+  'i hope you die', 'go die', 'drink bleach', 'neck yourself',
+])
 
 export function checkContent(text: string): { blocked: boolean } {
   const normalized = normalize(text)
-  for (const pattern of PATTERNS) {
-    if (pattern.test(normalized)) {
-      return { blocked: true }
-    }
+  if (profanity.exists(normalized)) {
+    return { blocked: true }
   }
   return { blocked: false }
 }
