@@ -238,6 +238,33 @@ describe('Moderation', () => {
       expect(allReports[0]!.reporterUserId).toBe(receiver.userId)
       expect(allReports[0]!.actionTaken).toBe('removed')
     })
+
+    test('strikes decay after 30 days — old strikes reset to 1', async () => {
+      const sender = await createAuthenticatedUser()
+      const receiver1 = await createAuthenticatedUser()
+
+      // Direct DB state injection for test setup — bypasses moderation logic intentionally
+      await db.update(users).set({
+        strikeCount: 2,
+        lastStrikeAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000),
+      }).where(eq(users.id, sender.userId))
+
+      // Send + receive + report
+      await requestJSON('/v1/messages', {
+        method: 'POST', token: sender.token, body: { text: 'old strikes msg' },
+      })
+      const { json } = await requestJSON<{ id: string }>('/v1/messages/today', {
+        token: receiver1.token,
+      })
+      await requestJSON(`/v1/messages/${json!.id}/report`, {
+        method: 'POST', token: receiver1.token, body: {},
+      })
+
+      // Strike should have reset to 1 (not incremented to 3)
+      const [user] = await db.select().from(users).where(eq(users.id, sender.userId))
+      expect(user!.strikeCount).toBe(1)
+      expect(user!.suspensionUntil).toBeNull()
+    })
   })
 
   // ── Block flow ───────────────────────────────────────────
@@ -392,6 +419,47 @@ describe('Moderation', () => {
       expect(logs[0]!.messageId).toBe(json!.id)
       expect(logs[0]!.senderUserId).toBe(sender.userId)
       expect(logs[0]!.recipientUserId).toBe(receiver.userId)
+    })
+  })
+
+  // ── Suspension expiry ───────────────────────────────────
+
+  describe('suspension expiry', () => {
+    test('expired suspension allows sending again', async () => {
+      const user = await createAuthenticatedUser()
+
+      // Direct DB state injection for test setup — bypasses moderation logic intentionally
+      await db.update(users).set({
+        suspensionUntil: new Date(Date.now() - 1000),
+        strikeCount: 3,
+      }).where(eq(users.id, user.userId))
+
+      const { status } = await requestJSON('/v1/messages', {
+        method: 'POST',
+        token: user.token,
+        body: { text: 'I am free again' },
+      })
+      expect(status).toBe(201)
+    })
+  })
+
+  // ── UUID validation ────────────────────────────────────
+
+  describe('UUID validation', () => {
+    test('report with invalid UUID returns 404', async () => {
+      const user = await createAuthenticatedUser()
+      const { status } = await requestJSON('/v1/messages/not-a-uuid/report', {
+        method: 'POST', token: user.token, body: {},
+      })
+      expect(status).toBe(404)
+    })
+
+    test('block with invalid UUID returns 404', async () => {
+      const user = await createAuthenticatedUser()
+      const { status } = await requestJSON('/v1/messages/not-a-uuid/block', {
+        method: 'POST', token: user.token, body: {},
+      })
+      expect(status).toBe(404)
     })
   })
 
