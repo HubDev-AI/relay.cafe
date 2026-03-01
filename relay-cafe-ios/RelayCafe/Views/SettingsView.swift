@@ -58,12 +58,12 @@ struct SettingsView: View {
                         .opacity(0.3)
                         .multilineTextAlignment(.center)
 
-                    Button("safety@relay.cafe") {
-                        if let url = URL(string: "mailto:safety@relay.cafe"),
+                    Button("relay.cafe@pm.me") {
+                        if let url = URL(string: "mailto:relay.cafe@pm.me"),
                            UIApplication.shared.canOpenURL(url) {
                             UIApplication.shared.open(url)
                         } else {
-                            UIPasteboard.general.string = "safety@relay.cafe"
+                            UIPasteboard.general.string = "relay.cafe@pm.me"
                             copiedEmail = true
                             Task {
                                 try? await Task.sleep(for: .seconds(2))
