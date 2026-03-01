@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm'
 import { app } from './app'
 import { db } from './db'
 import { initSentry, captureError } from './lib/logger'
+import { currentPeriod } from './lib/period'
 
 initSentry()
 
@@ -44,6 +45,17 @@ new Cron('*/10 * * * *', async () => {
     if (count > 0) console.log(`[cleanup] deleted ${count} expired delivery log entries`)
   } catch (err) {
     captureError(err, { source: 'cleanup-expired-delivery-log' })
+  }
+})
+
+new Cron('0 * * * *', async () => {
+  try {
+    const cutoff = currentPeriod() - 7
+    const result = await db.execute(sql`DELETE FROM daily_tokens WHERE date < ${cutoff}`)
+    const count = result.length
+    if (count > 0) console.log(`[cleanup] deleted ${count} stale daily token records`)
+  } catch (err) {
+    captureError(err, { source: 'cleanup-stale-daily-tokens' })
   }
 })
 

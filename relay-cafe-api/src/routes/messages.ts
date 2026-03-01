@@ -232,51 +232,64 @@ messagesRouter.post('/:id/report', createRateLimitMiddleware(rateLimiter, 'messa
     return c.json({ error: 'Not found' }, 404)
   }
 
-  // Idempotency: check if already reported
-  const [existingReport] = await db
-    .select({ id: reports.id })
-    .from(reports)
-    .where(
-      and(
-        eq(reports.messageId, messageId),
-        eq(reports.reporterUserId, userId),
-      ),
-    )
+  try {
+    const result = await db.transaction(async (tx) => {
+      // Idempotency check inside transaction to prevent race
+      const [existingReport] = await tx
+        .select({ id: reports.id })
+        .from(reports)
+        .where(
+          and(
+            eq(reports.messageId, messageId),
+            eq(reports.reporterUserId, userId),
+          ),
+        )
 
-  if (existingReport) {
+      if (existingReport) {
+        return { alreadyReported: true } as const
+      }
+
+      // Atomic strike increment
+      const [updated] = await tx.execute<{ strike_count: number }>(sql`
+        UPDATE users
+        SET strike_count = strike_count + 1, last_strike_at = NOW()
+        WHERE id = ${delivery.senderUserId}
+        RETURNING strike_count
+      `)
+
+      if (!updated) {
+        return { senderGone: true } as const
+      }
+
+      const strikeCount = updated.strike_count
+      let actionTaken = 'removed'
+
+      // Suspend if threshold reached
+      if (strikeCount >= 3) {
+        await tx
+          .update(users)
+          .set({ suspended: true })
+          .where(eq(users.id, delivery.senderUserId))
+        actionTaken = 'suspended'
+      }
+
+      // Insert report
+      await tx.insert(reports).values({
+        messageId,
+        reporterUserId: userId,
+        senderUserId: delivery.senderUserId,
+        actionTaken,
+        strikeCountAfter: strikeCount,
+      })
+
+      return { ok: true } as const
+    })
+
     return c.json({ ok: true })
+  } catch (err) {
+    captureError(err, { route: 'POST /messages/:id/report', action: 'report' })
+    return c.json({ error: 'Unable to process report.' }, 500)
   }
-
-  // Atomic strike increment
-  const [updated] = await db.execute<{ strike_count: number }>(sql`
-    UPDATE users
-    SET strike_count = strike_count + 1, last_strike_at = NOW()
-    WHERE id = ${delivery.senderUserId}
-    RETURNING strike_count
-  `)
-
-  const strikeCount = updated.strike_count
-  let actionTaken = 'removed'
-
-  // Suspend if threshold reached
-  if (strikeCount >= 3) {
-    await db
-      .update(users)
-      .set({ suspended: true })
-      .where(eq(users.id, delivery.senderUserId))
-    actionTaken = 'suspended'
-  }
-
-  // Insert report
-  await db.insert(reports).values({
-    messageId,
-    reporterUserId: userId,
-    senderUserId: delivery.senderUserId,
-    actionTaken,
-    strikeCountAfter: strikeCount,
-  })
-
-  return c.json({ ok: true })
 })
 
 messagesRouter.post('/:id/block', createRateLimitMiddleware(rateLimiter, 'messages'), async (c) => {
