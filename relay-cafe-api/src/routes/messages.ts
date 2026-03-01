@@ -34,11 +34,11 @@ messagesRouter.post('/', createRateLimitMiddleware(rateLimiter, 'messages'), asy
     const result = await db.transaction(async (tx) => {
       // 1. Suspension check (first — before token claim)
       const [user] = await tx
-        .select({ suspended: users.suspended })
+        .select({ suspensionUntil: users.suspensionUntil })
         .from(users)
         .where(eq(users.id, userId))
 
-      if (user?.suspended) {
+      if (user?.suspensionUntil && user.suspensionUntil > new Date()) {
         return { suspended: true } as const
       }
 
