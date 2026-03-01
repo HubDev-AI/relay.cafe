@@ -4,7 +4,7 @@
 
 **Goal:** Fix 4 HIGH/MEDIUM audit findings: time-based suspension, strike persistence across account deletion, report audit trail via SET NULL, schema/migration alignment.
 
-**Architecture:** Extend `deleted_accounts` with moderation columns, replace boolean `suspended` with `suspension_until TIMESTAMPTZ`, change report FK from CASCADE to SET NULL, extract constants, add UUID validation.
+**Architecture:** Extend `deleted_accounts` with moderation columns, replace boolean `suspended` with `suspension_until TIMESTAMPTZ`, change report FK from CASCADE to SET NULL, extract constants, add UUID validation via `uuid` package.
 
 **Tech Stack:** Bun test runner, Drizzle ORM, PostgreSQL, Hono
 
@@ -16,8 +16,8 @@
 
 **Files:**
 - Create: `relay-cafe-api/src/lib/moderationConfig.ts`
-- Create: `relay-cafe-api/src/lib/validators.ts`
 - Create: `relay-cafe-api/migrations/005_moderation_lifecycle.sql`
+- Install: `uuid` + `@types/uuid`
 
 **Step 1: Create moderation constants**
 
@@ -29,13 +29,13 @@ export const SUSPENSION_DURATION_DAYS = 30 as const
 export const STRIKE_DECAY_DAYS = 30 as const
 ```
 
-**Step 2: Create UUID validator**
+**Step 2: Install `uuid` package for validation**
 
-Create `relay-cafe-api/src/lib/validators.ts`:
-
-```typescript
-export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+```bash
+cd relay-cafe-api && bun add uuid && bun add -d @types/uuid
 ```
+
+This provides `validate` from `uuid` — no custom regex needed.
 
 **Step 3: Create migration**
 
@@ -46,6 +46,7 @@ Create `relay-cafe-api/migrations/005_moderation_lifecycle.sql`:
 -- 1. Replace boolean suspended with suspension_until
 -- 2. Add moderation state to deleted_accounts
 -- 3. Reports FK: CASCADE → SET NULL
+-- NOTE: 30 days in the UPDATE below must match SUSPENSION_DURATION_DAYS in moderationConfig.ts
 
 -- 1. Replace boolean suspended with suspension_until
 ALTER TABLE users ADD COLUMN suspension_until TIMESTAMPTZ;
@@ -78,8 +79,8 @@ SELECT constraint_name FROM information_schema.table_constraints WHERE table_nam
 
 ```bash
 cd relay-cafe-api
-git add src/lib/moderationConfig.ts src/lib/validators.ts migrations/005_moderation_lifecycle.sql
-git commit -m "feat: add moderation config, UUID validator, and lifecycle migration"
+git add src/lib/moderationConfig.ts migrations/005_moderation_lifecycle.sql package.json bun.lockb
+git commit -m "feat: add moderation config, uuid dependency, and lifecycle migration"
 ```
 
 ---
@@ -242,7 +243,7 @@ At `messages.ts`, add to the import section (after line 11):
 
 ```typescript
 import { STRIKE_THRESHOLD, SUSPENSION_DURATION_DAYS, STRIKE_DECAY_DAYS } from '../lib/moderationConfig'
-import { UUID_RE } from '../lib/validators'
+import { validate as uuidValidate } from 'uuid'
 ```
 
 **Step 2: Replace strike increment and suspension logic**
@@ -279,7 +280,7 @@ with:
 
 ```typescript
       // Atomic strike decay + increment + suspension in one query
-      // Uses CTE to compute new_strike_count once, avoiding duplicated CASE
+      // new_count is computed once in CTE to avoid duplicated CASE logic
       // Uses N * INTERVAL '1 day' instead of sql.raw() for safe parameterization
       const [updated] = await tx.execute<{ strike_count: number; suspension_until: Date | null }>(sql`
         WITH new_strikes AS (
@@ -343,7 +344,7 @@ git commit -m "feat: atomic strike decay + suspension extension in report endpoi
 At `messages.ts:213`, after `const messageId = c.req.param('id')`, add:
 
 ```typescript
-  if (!UUID_RE.test(messageId)) {
+  if (!uuidValidate(messageId)) {
     return c.json({ error: 'Not found' }, 404)
   }
 ```
@@ -353,12 +354,12 @@ At `messages.ts:213`, after `const messageId = c.req.param('id')`, add:
 At `messages.ts:294`, after `const messageId = c.req.param('id')`, add:
 
 ```typescript
-  if (!UUID_RE.test(messageId)) {
+  if (!uuidValidate(messageId)) {
     return c.json({ error: 'Not found' }, 404)
   }
 ```
 
-Note: `UUID_RE` was already imported in Task 4, Step 1.
+Note: `uuidValidate` was already imported in Task 4, Step 1.
 
 **Step 3: Verify build**
 
@@ -409,20 +410,17 @@ meRouter.delete('/', authMiddleware, async (c) => {
       .values({
         appleIdHash: user.appleIdHash,
         cooldownUntil: nextPeriodStart(),
-        ...(hasModState ? {
-          strikeCount: user.strikeCount,
-          suspensionUntil: user.suspensionUntil,
-        } : {}),
+        strikeCount: hasModState ? user.strikeCount : 0,
+        suspensionUntil: hasModState ? user.suspensionUntil : null,
       })
       .onConflictDoUpdate({
         target: deletedAccounts.appleIdHash,
         set: {
           cooldownUntil: nextPeriodStart(),
           deletedAt: new Date(),
-          ...(hasModState ? {
-            strikeCount: user.strikeCount,
-            suspensionUntil: user.suspensionUntil,
-          } : {}),
+          // Always set moderation fields explicitly — prevents stale state from prior row
+          strikeCount: hasModState ? user.strikeCount : 0,
+          suspensionUntil: hasModState ? user.suspensionUntil : null,
         },
       })
 
@@ -477,7 +475,9 @@ Replace `auth.ts:41-81` (from `// Check cooldown` through end of transaction):
           } as const
         }
 
-        // Determine moderation state to carry forward
+        // Carry forward only if suspension is still active.
+        // Intentional: if suspension expired, user gets a clean start (strikeCount reset).
+        // Strike decay already handles gradual reset during active usage.
         const carryForward = deleted.suspensionUntil && deleted.suspensionUntil > new Date()
           ? { suspensionUntil: deleted.suspensionUntil, strikeCount: deleted.strikeCount }
           : null
@@ -684,7 +684,7 @@ Add to the end of the `report` describe block (after the `report creates report 
       const sender = await createAuthenticatedUser()
       const receiver1 = await createAuthenticatedUser()
 
-      // Give sender 2 strikes from 40 days ago
+      // Direct DB state injection for test setup — bypasses moderation logic intentionally
       await db.update(users).set({
         strikeCount: 2,
         lastStrikeAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000),
@@ -717,7 +717,7 @@ Add a new describe block after the `suspension check on send` block:
     test('expired suspension allows sending again', async () => {
       const user = await createAuthenticatedUser()
 
-      // Set suspension that expired 1 second ago
+      // Direct DB state injection for test setup — bypasses moderation logic intentionally
       await db.update(users).set({
         suspensionUntil: new Date(Date.now() - 1000),
         strikeCount: 3,
@@ -741,7 +741,7 @@ Add inside the `report` describe block:
     test('new strike does not shorten existing suspension', async () => {
       const sender = await createAuthenticatedUser()
 
-      // Set existing suspension 25 days in the future
+      // Direct DB state injection for test setup — bypasses moderation logic intentionally
       const existingSuspension = new Date(Date.now() + 25 * 24 * 60 * 60 * 1000)
       await db.update(users).set({
         strikeCount: 3,
@@ -827,7 +827,7 @@ Add a new describe block at the end of the Moderation describe:
       const { user: senderUser, appleSubId } = await createUser()
       const senderToken = await createSession(senderUser.id)
 
-      // Suspend the user
+      // Direct DB state injection for test setup — bypasses moderation logic intentionally
       const futureDate = new Date(Date.now() + 20 * 24 * 60 * 60 * 1000)
       await db.update(users).set({
         strikeCount: 3,
@@ -859,7 +859,7 @@ Add a new describe block at the end of the Moderation describe:
       const { user: senderUser, appleSubId } = await createUser()
       const senderToken = await createSession(senderUser.id)
 
-      // Set suspension that already expired
+      // Direct DB state injection for test setup — bypasses moderation logic intentionally
       await db.update(users).set({
         strikeCount: 3,
         suspensionUntil: new Date(Date.now() - 1000),
