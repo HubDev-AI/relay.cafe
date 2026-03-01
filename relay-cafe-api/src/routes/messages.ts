@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { db } from '../db'
-import { messages, dailyTokens, users, deliveryLog, blockedSenders } from '../db/schema'
+import { messages, dailyTokens, users, deliveryLog, blockedSenders, reports } from '../db/schema'
 import { and, eq, sql } from 'drizzle-orm'
 import { encryptMessage, decryptMessage } from '../lib/crypto'
 import { wrapKey, unwrapKey } from '../lib/kms'
@@ -208,4 +208,72 @@ messagesRouter.get('/today', createRateLimitMiddleware(rateLimiter, 'messages'),
     }
     return c.json({ error: 'Unable to process message.' }, 500)
   }
+})
+
+messagesRouter.post('/:id/report', createRateLimitMiddleware(rateLimiter, 'messages'), async (c) => {
+  const userId = c.get('userId') as string
+  const messageId = c.req.param('id')
+
+  // Look up delivery log — can only report messages you received, within 48h
+  const [delivery] = await db
+    .select({
+      senderUserId: deliveryLog.senderUserId,
+    })
+    .from(deliveryLog)
+    .where(
+      and(
+        eq(deliveryLog.messageId, messageId),
+        eq(deliveryLog.recipientUserId, userId),
+      ),
+    )
+
+  if (!delivery) {
+    return c.json({ error: 'Not found' }, 404)
+  }
+
+  // Idempotency: check if already reported
+  const [existingReport] = await db
+    .select({ id: reports.id })
+    .from(reports)
+    .where(
+      and(
+        eq(reports.messageId, messageId),
+        eq(reports.reporterUserId, userId),
+      ),
+    )
+
+  if (existingReport) {
+    return c.json({ ok: true })
+  }
+
+  // Atomic strike increment
+  const [updated] = await db.execute<{ strike_count: number }>(sql`
+    UPDATE users
+    SET strike_count = strike_count + 1, last_strike_at = NOW()
+    WHERE id = ${delivery.senderUserId}
+    RETURNING strike_count
+  `)
+
+  const strikeCount = updated.strike_count
+  let actionTaken = 'removed'
+
+  // Suspend if threshold reached
+  if (strikeCount >= 3) {
+    await db
+      .update(users)
+      .set({ suspended: true })
+      .where(eq(users.id, delivery.senderUserId))
+    actionTaken = 'suspended'
+  }
+
+  // Insert report
+  await db.insert(reports).values({
+    messageId,
+    reporterUserId: userId,
+    senderUserId: delivery.senderUserId,
+    actionTaken,
+    strikeCountAfter: strikeCount,
+  })
+
+  return c.json({ ok: true })
 })
