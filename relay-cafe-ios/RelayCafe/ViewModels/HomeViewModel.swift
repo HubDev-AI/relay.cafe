@@ -10,6 +10,8 @@ final class HomeViewModel {
     var receiveState: ReceiveState = .idle
     var statusError: String?
     var isUnauthorized = false
+    var moderationNotice: String?
+    var isSuspended = false
 
     enum ReceiveState: Equatable {
         case idle, loading, quiet, received(MessageResponse), error(String)
@@ -49,5 +51,27 @@ final class HomeViewModel {
         } catch {
             receiveState = .error("Unable to open message.\nPlease try again.")  // case 3
         }
+    }
+
+    func reportMessage(id: String) async {
+        do {
+            try await APIClient.shared.reportMessage(id: id)
+        } catch {
+            // Silently succeed — even on 404 (outside retention window)
+        }
+        moderationNotice = "Message reported."
+    }
+
+    func blockSender(messageId: String) async {
+        do {
+            try await APIClient.shared.blockSender(messageId: messageId)
+        } catch {
+            // Silently succeed
+        }
+        moderationNotice = "Sender blocked."
+    }
+
+    func clearModerationNotice() {
+        moderationNotice = nil
     }
 }
