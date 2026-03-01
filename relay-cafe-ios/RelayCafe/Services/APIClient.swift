@@ -34,6 +34,11 @@ actor APIClient {
     static let shared = APIClient()
 
     private static let defaultBaseURL: URL = {
+        // UI test override via launch environment
+        if let envURL = ProcessInfo.processInfo.environment["API_BASE_URL"],
+           let url = URL(string: envURL) {
+            return url
+        }
         let info = Bundle.main.infoDictionary
         if let urlString = info?["APIBaseURL"] as? String, let url = URL(string: urlString) {
             return url

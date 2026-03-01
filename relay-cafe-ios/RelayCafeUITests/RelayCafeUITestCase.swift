@@ -1,15 +1,16 @@
 import XCTest
 
 /// Base class for all UI tests.
-/// Ensures the app launches pointing at the local test server.
+/// Ensures the app launches in a clean state pointing at the local test server.
 class RelayCafeUITestCase: XCTestCase {
     var app: XCUIApplication!
 
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        // Clear keychain state so we start fresh
         app.launchArguments += ["-resetState"]
+        // Point to local API for E2E testing
+        app.launchEnvironment["API_BASE_URL"] = "http://localhost:3000"
         app.launch()
     }
 
