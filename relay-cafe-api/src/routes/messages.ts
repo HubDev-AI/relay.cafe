@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { db } from '../db'
-import { messages, dailyTokens, users } from '../db/schema'
+import { messages, dailyTokens, users, deliveryLog, blockedSenders } from '../db/schema'
 import { and, eq, sql } from 'drizzle-orm'
 import { encryptMessage, decryptMessage } from '../lib/crypto'
 import { wrapKey, unwrapKey } from '../lib/kms'
@@ -127,12 +127,9 @@ messagesRouter.get('/today', createRateLimitMiddleware(rateLimiter, 'messages'),
     return c.json({ error: 'Already received today.' }, 429)
   }
 
-  // Transaction: lock message → decrypt → delete only on success.
-  // If decryption fails, rollback preserves the message and the
-  // receive token is rolled back outside the transaction.
   try {
     const result = await db.transaction(async (tx) => {
-      // Lock a random unexpired message
+      // Lock a random unexpired message, excluding self and blocked senders
       const candidates = await tx.execute<{
         id: string
         ciphertext: string
@@ -140,10 +137,17 @@ messagesRouter.get('/today', createRateLimitMiddleware(rateLimiter, 'messages'),
         kms_key_version: string
         iv: string
         expires_at: Date
+        sender_user_id: string
       }>(sql`
-        SELECT id, ciphertext, encrypted_message_key, kms_key_version, iv, expires_at
+        SELECT id, ciphertext, encrypted_message_key, kms_key_version, iv, expires_at, sender_user_id
         FROM messages
         WHERE expires_at > NOW()
+          AND sender_user_id != ${userId}
+          AND sender_user_id NOT IN (
+            SELECT blocked_sender_user_id
+            FROM blocked_senders
+            WHERE blocker_user_id = ${userId}
+          )
         ORDER BY RANDOM()
         LIMIT 1
         FOR UPDATE SKIP LOCKED
@@ -152,11 +156,17 @@ messagesRouter.get('/today', createRateLimitMiddleware(rateLimiter, 'messages'),
       const msg = candidates[0]
       if (!msg) return null
 
-      // Decrypt before deleting — if this fails, transaction rolls back
+      // Decrypt
       const key = await unwrapKey(msg.encrypted_message_key, msg.kms_key_version)
       const text = await decryptMessage(msg.ciphertext, msg.iv, key)
 
-      // Decryption succeeded — now delete
+      // Write delivery log BEFORE deletion
+      await tx.execute(sql`
+        INSERT INTO delivery_log (id, message_id, sender_user_id, recipient_user_id)
+        VALUES (gen_random_uuid(), ${msg.id}, ${msg.sender_user_id}, ${userId})
+      `)
+
+      // Delete message
       await tx.execute(sql`DELETE FROM messages WHERE id = ${msg.id}`)
 
       const expiresAt = msg.expires_at instanceof Date
@@ -183,8 +193,6 @@ messagesRouter.get('/today', createRateLimitMiddleware(rateLimiter, 'messages'),
     return c.json(result)
   } catch (err) {
     captureError(err, { route: 'GET /messages/today', action: 'decrypt-and-deliver' })
-    // Decrypt or KMS failure — transaction rolled back, message preserved.
-    // Roll back receive token so user can try again.
     try {
       await db
         .update(dailyTokens)
