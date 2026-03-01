@@ -1,9 +1,9 @@
-import { pgTable, uuid, text, bigint, boolean, timestamp, primaryKey, integer, index } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, text, bigint, boolean, timestamp, primaryKey, integer, index, uniqueIndex } from 'drizzle-orm/pg-core'
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   appleIdHash: text('apple_id_hash').unique().notNull(),
-  suspended: boolean('suspended').notNull().default(false),
+  suspensionUntil: timestamp('suspension_until', { withTimezone: true }),
   strikeCount: integer('strike_count').notNull().default(0),
   lastStrikeAt: timestamp('last_strike_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -30,6 +30,8 @@ export const deletedAccounts = pgTable('deleted_accounts', {
   appleIdHash: text('apple_id_hash').primaryKey(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }).notNull().defaultNow(),
   cooldownUntil: timestamp('cooldown_until', { withTimezone: true }).notNull(),
+  strikeCount: integer('strike_count').notNull().default(0),
+  suspensionUntil: timestamp('suspension_until', { withTimezone: true }),
 })
 
 export const messages = pgTable('messages', {
@@ -58,15 +60,15 @@ export const deliveryLog = pgTable('delivery_log', {
 export const reports = pgTable('reports', {
   id: uuid('id').primaryKey().defaultRandom(),
   messageId: uuid('message_id').notNull(),
-  reporterUserId: uuid('reporter_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  senderUserId: uuid('sender_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  reporterUserId: uuid('reporter_user_id').references(() => users.id, { onDelete: 'set null' }),
+  senderUserId: uuid('sender_user_id').references(() => users.id, { onDelete: 'set null' }),
   actionTaken: text('action_taken').notNull(),
   strikeCountAfter: integer('strike_count_after').notNull(),
   reviewed: boolean('reviewed').notNull().default(false),
   reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
-  uniqueReport: index('idx_reports_unique').on(t.messageId, t.reporterUserId),
+  uniqueReport: uniqueIndex('idx_reports_unique').on(t.messageId, t.reporterUserId),
   senderIdx: index('idx_reports_sender').on(t.senderUserId),
 }))
 
