@@ -36,7 +36,7 @@ describe('KMS wrap/unwrap (real GCP KMS)', () => {
     const rawKey = randomBytes(32)
     const { encryptedKey, keyVersion } = await wrapKey(rawKey)
     const tampered = Buffer.from(encryptedKey, 'base64')
-    tampered[10] ^= 0xff
+    tampered[10] = tampered[10]! ^ 0xff
     const tamperedB64 = tampered.toString('base64')
     await expect(unwrapKey(tamperedB64, keyVersion)).rejects.toThrow()
   })

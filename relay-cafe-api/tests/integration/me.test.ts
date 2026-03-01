@@ -78,23 +78,22 @@ describe('DELETE /v1/me (account deletion)', () => {
     expect(status).toBe(401)
   })
 
-  test('messages left in pool survive after user deleted (anonymous)', async () => {
+  test('messages in pool are cascade-deleted when sender deletes account', async () => {
     await resetDB()
     const sender = await createAuthenticatedUser()
     // Send a message
     await requestJSON('/v1/messages', {
       method: 'POST',
       token: sender.token,
-      body: { text: 'I will survive' },
+      body: { text: 'I will not survive' },
     })
-    // Delete the sender's account
+    // Delete the sender's account — cascades to their messages
     await request('/v1/me', { method: 'DELETE', token: sender.token })
 
-    // A different user should still be able to receive the message
+    // A different user should NOT be able to receive the message (it's gone)
     const receiver = await createAuthenticatedUser()
-    const { status, json } = await requestJSON<{ text: string }>('/v1/messages/today', { token: receiver.token })
-    expect(status).toBe(200)
-    expect(json!.text).toBe('I will survive')
+    const res = await request('/v1/messages/today', { token: receiver.token })
+    expect(res.status).toBe(204)
   })
 
   test('no auth returns 401', async () => {

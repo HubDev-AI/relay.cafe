@@ -33,7 +33,7 @@ describe('Rate limit middleware', () => {
       headers: { 'X-Forwarded-For': '1.2.3.4' },
     })
     expect(res.status).toBe(429)
-    const body = await res.json()
+    const body = await res.json() as { error: string }
     expect(body.error).toBe('Please try again later.')
     expect(res.headers.get('Retry-After')).toBeTruthy()
   })

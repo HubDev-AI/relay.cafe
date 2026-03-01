@@ -36,11 +36,12 @@ describe('POST /v1/messages (send)', () => {
     const allMessages = await db.select().from(messages)
     expect(allMessages.length).toBe(1)
     // Ciphertext should not contain the plaintext
-    expect(allMessages[0].ciphertext).not.toContain('Check the DB')
-    expect(allMessages[0].ciphertext.length).toBeGreaterThan(0)
-    expect(allMessages[0].iv.length).toBeGreaterThan(0)
-    expect(allMessages[0].encryptedMessageKey.length).toBeGreaterThan(0)
-    expect(allMessages[0].kmsKeyVersion.length).toBeGreaterThan(0)
+    const msg = allMessages[0]!
+    expect(msg.ciphertext).not.toContain('Check the DB')
+    expect(msg.ciphertext.length).toBeGreaterThan(0)
+    expect(msg.iv.length).toBeGreaterThan(0)
+    expect(msg.encryptedMessageKey.length).toBeGreaterThan(0)
+    expect(msg.kmsKeyVersion.length).toBeGreaterThan(0)
 
   })
 

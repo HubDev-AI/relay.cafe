@@ -197,23 +197,23 @@ describe('GET /v1/messages/today (receive)', () => {
     expect(tok!.receiveUsed).toBe(false)
   })
 
-  test('send then receive own message (single user)', async () => {
+  test('self-receive is prevented — user cannot receive own message', async () => {
     const user = await createAuthenticatedUser()
 
-    const sentText = 'self-loop-' + Date.now()
     await requestJSON('/v1/messages', {
       method: 'POST',
       token: user.token,
-      body: { text: sentText },
+      body: { text: 'self-loop-' + Date.now() },
     })
 
-    const { status, json } = await requestJSON<{ text: string }>('/v1/messages/today', {
+    const res = await request('/v1/messages/today', {
       token: user.token,
     })
-    expect(status).toBe(200)
-    expect(json!.text).toBe(sentText)
+    // 204 = no messages available (own message is excluded)
+    expect(res.status).toBe(204)
 
+    // Message is still in DB (not delivered, not deleted)
     const remaining = await db.select().from(messages)
-    expect(remaining.length).toBe(0)
+    expect(remaining.length).toBe(1)
   })
 })
