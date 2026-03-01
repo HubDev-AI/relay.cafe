@@ -214,6 +214,10 @@ messagesRouter.post('/:id/report', createRateLimitMiddleware(rateLimiter, 'messa
   const userId = c.get('userId')
   const messageId = c.req.param('id')
 
+  if (!uuidValidate(messageId)) {
+    return c.json({ error: 'Not found' }, 404)
+  }
+
   // Look up delivery log — can only report messages you received, within 48h
   const [delivery] = await db
     .select({
@@ -309,6 +313,10 @@ messagesRouter.post('/:id/report', createRateLimitMiddleware(rateLimiter, 'messa
 messagesRouter.post('/:id/block', createRateLimitMiddleware(rateLimiter, 'messages'), async (c) => {
   const userId = c.get('userId')
   const messageId = c.req.param('id')
+
+  if (!uuidValidate(messageId)) {
+    return c.json({ error: 'Not found' }, 404)
+  }
 
   // Look up delivery log — can only block senders of messages you received
   const [delivery] = await db
