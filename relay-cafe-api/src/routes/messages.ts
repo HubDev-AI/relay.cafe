@@ -1,11 +1,12 @@
 import { Hono } from 'hono'
 import { db } from '../db'
-import { messages, dailyTokens } from '../db/schema'
+import { messages, dailyTokens, users } from '../db/schema'
 import { and, eq, sql } from 'drizzle-orm'
 import { encryptMessage, decryptMessage } from '../lib/crypto'
 import { wrapKey, unwrapKey } from '../lib/kms'
 import { currentPeriod } from '../lib/period'
 import { captureError } from '../lib/logger'
+import { checkContent } from '../lib/contentFilter'
 import { createRateLimitMiddleware } from '../middleware/rateLimit'
 import { rateLimiter } from '../lib/container'
 
@@ -24,64 +25,77 @@ messagesRouter.post('/', createRateLimitMiddleware(rateLimiter, 'messages'), asy
   const userId = c.get('userId') as string
   const today = currentPeriod()
 
-  // Upsert daily token row
-  await db
-    .insert(dailyTokens)
-    .values({ userId, date: today, sendUsed: false, receiveUsed: false })
-    .onConflictDoNothing()
-
-  // Atomically claim the send token: UPDATE ... WHERE sendUsed = false
-  // Returns the updated row only if the token was available (prevents TOCTOU race)
-  const claimed = await db
-    .update(dailyTokens)
-    .set({ sendUsed: true })
-    .where(
-      and(
-        eq(dailyTokens.userId, userId),
-        eq(dailyTokens.date, today),
-        eq(dailyTokens.sendUsed, false),
-      ),
-    )
-    .returning()
-
-  if (claimed.length === 0) {
-    return c.json({ error: 'Already sent today.' }, 429)
-  }
-
-  // Encrypt + insert. If encrypt/KMS/insert fails, roll back the send token
-  // so the user doesn't lose their daily send on a server-side failure.
   try {
-    const { ciphertext, iv, key } = await encryptMessage(body.text)
-    const { encryptedKey, keyVersion } = await wrapKey(key)
+    const result = await db.transaction(async (tx) => {
+      // 1. Suspension check (first — before token claim)
+      const [user] = await tx
+        .select({ suspended: users.suspended })
+        .from(users)
+        .where(eq(users.id, userId))
 
-    const ttlMs = (Number(process.env.MESSAGE_TTL_SECONDS) || 86400) * 1000
-    const expiresAt = new Date(Date.now() + ttlMs)
+      if (user?.suspended) {
+        return { suspended: true } as const
+      }
 
-    await db.insert(messages).values({
-      ciphertext,
-      encryptedMessageKey: encryptedKey,
-      kmsKeyVersion: keyVersion,
-      iv,
-      expiresAt,
-    })
+      // 2. Upsert daily token row
+      await tx
+        .insert(dailyTokens)
+        .values({ userId, date: today, sendUsed: false, receiveUsed: false })
+        .onConflictDoNothing()
 
-    return c.json({ ok: true }, 201)
-  } catch (err) {
-    captureError(err, { route: 'POST /messages', action: 'encrypt-and-insert' })
-    // Roll back send token so user can retry
-    try {
-      await db
+      // 3. Claim send token
+      const claimed = await tx
         .update(dailyTokens)
-        .set({ sendUsed: false })
+        .set({ sendUsed: true })
         .where(
           and(
             eq(dailyTokens.userId, userId),
             eq(dailyTokens.date, today),
+            eq(dailyTokens.sendUsed, false),
           ),
         )
-    } catch (rollbackErr) {
-      captureError(rollbackErr, { route: 'POST /messages', action: 'send-token-rollback' })
+        .returning()
+
+      if (claimed.length === 0) {
+        return { alreadySent: true } as const
+      }
+
+      // 4. Content filter (pure CPU, inside tx after token claim)
+      if (checkContent(body.text).blocked) {
+        return { filtered: true } as const
+      }
+
+      // 5. Encrypt + insert with sender_user_id
+      const { ciphertext, iv, key } = await encryptMessage(body.text)
+      const { encryptedKey, keyVersion } = await wrapKey(key)
+
+      const ttlMs = (Number(process.env.MESSAGE_TTL_SECONDS) || 86400) * 1000
+      const expiresAt = new Date(Date.now() + ttlMs)
+
+      await tx.insert(messages).values({
+        senderUserId: userId,
+        ciphertext,
+        encryptedMessageKey: encryptedKey,
+        kmsKeyVersion: keyVersion,
+        iv,
+        expiresAt,
+      })
+
+      return { ok: true } as const
+    })
+
+    if ('suspended' in result && result.suspended) {
+      return c.json({ error: 'Your account has been suspended for violating community guidelines.' }, 403)
     }
+    if ('alreadySent' in result && result.alreadySent) {
+      return c.json({ error: 'Already sent today.' }, 429)
+    }
+    if ('filtered' in result && result.filtered) {
+      return c.json({ error: 'This message violates community guidelines.' }, 400)
+    }
+    return c.json({ ok: true }, 201)
+  } catch (err) {
+    captureError(err, { route: 'POST /messages', action: 'send' })
     return c.json({ error: 'Unable to send message.' }, 500)
   }
 })
