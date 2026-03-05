@@ -92,6 +92,8 @@ struct MessageView: View {
                                 Image(systemName: "ellipsis")
                                     .font(.system(size: 14))
                                     .opacity(0.2)
+                                    .frame(width: 44, height: 44)
+                                    .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                             .accessibilityIdentifier("message.moreButton")
