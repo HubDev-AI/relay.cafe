@@ -7,34 +7,69 @@ Built with [Hono](https://hono.dev) + [Bun](https://bun.sh), using Drizzle ORM a
 ## Prerequisites
 
 - [Bun](https://bun.sh) (latest)
-- PostgreSQL 15+
+- [Docker](https://docs.docker.com/get-docker/) + Docker Compose
 - GCP project with KMS enabled (see [KMS setup](../docs/kms-key-lifecycle.md))
 
-## Setup
+## Quick Start
 
 ```bash
 bun install
-cp .env.example .env
-# Edit .env with your values
+cp .env.example .env    # edit with your values
+make dev                # start postgres + redis
+make db-push            # push schema
+make start              # start API server
 ```
+
+## Docker Compose
+
+The `docker-compose.yml` provides Postgres and Redis for local development.
+
+```bash
+# Start infra only (recommended — run API natively for fast iteration)
+make dev
+
+# Start full stack (postgres + redis + API in container)
+make up
+
+# Stop everything
+make down
+
+# View logs (optionally filter: make logs SVC=postgres)
+make logs
+
+# Remove containers, volumes, and images
+make clean
+```
+
+When running `make dev`, the API connects to Postgres and Redis on localhost using the values in `.env`:
+- `DATABASE_URL=postgres://relay:relay@localhost:5432/relaycafe`
+- `REDIS_URL=redis://localhost:6379`
+
+## Make Targets
+
+| Target | Description |
+|--------|-------------|
+| `make dev` | Start postgres + redis (run API natively) |
+| `make up` | Start full stack including API container |
+| `make down` | Stop all services |
+| `make logs` | Tail container logs |
+| `make clean` | Remove containers, volumes, images |
+| `make test` | Run tests (`bun test`) |
+| `make db-push` | Push Drizzle schema to database |
+| `make db-reset` | Delete messages + daily tokens |
+| `make start` | Start API server natively |
 
 ## Database
 
 ```bash
-bunx drizzle-kit push
-```
-
-## Run
-
-```bash
-bun run src/index.ts
-# → relay-cafe-api running on :3000
+make db-push            # push schema
+make db-reset           # clear test data
 ```
 
 ## Test
 
 ```bash
-bun test
+make test
 ```
 
 ## API Endpoints

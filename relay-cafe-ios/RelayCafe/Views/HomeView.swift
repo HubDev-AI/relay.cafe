@@ -91,14 +91,14 @@ struct HomeView: View {
         }()
         return VStack(spacing: 8) {
             Button("Open today's message") {
-                if !used && !isLoading {
+                if !used && !isLoading && !homeVM.isSuspended {
                     Task { await homeVM.openReceive() }
                 }
             }
             .font(.system(size: 17, weight: .regular))
             .buttonStyle(.plain)
-            .opacity(used || isLoading ? 0.62 : 1.0)
-            .disabled(used || isLoading)
+            .opacity(used || isLoading || homeVM.isSuspended ? 0.62 : 1.0)
+            .disabled(used || isLoading || homeVM.isSuspended)
             .accessibilityIdentifier("home.receiveButton")
 
             // Sub-label: stable height, content varies

@@ -12,6 +12,7 @@ final class HomeViewModel {
     var isUnauthorized = false
     var moderationNotice: String?
     var isSuspended = false
+    private var suspensionRefreshTask: Task<Void, Never>?
 
     enum ReceiveState: Equatable {
         case idle, loading, quiet, received(MessageResponse), error(String)
@@ -23,10 +24,27 @@ final class HomeViewModel {
         defer { isLoading = false }
         do {
             status = try await APIClient.shared.getStatus()
+            updateSuspension()
         } catch APIError.unauthorized {
             isUnauthorized = true
         } catch {
             statusError = "Connection unavailable.\nPlease try again."  // case 1
+        }
+    }
+
+    private func updateSuspension() {
+        suspensionRefreshTask?.cancel()
+
+        if let until = status?.suspendedUntil, until > Date() {
+            isSuspended = true
+            let delay = until.timeIntervalSinceNow + 1
+            suspensionRefreshTask = Task {
+                try? await Task.sleep(for: .seconds(delay))
+                guard !Task.isCancelled else { return }
+                await loadStatus()
+            }
+        } else {
+            isSuspended = false
         }
     }
 
@@ -43,6 +61,8 @@ final class HomeViewModel {
                 receiveState = .quiet
             }
         } catch APIError.alreadyUsedToday {
+            await loadStatus()
+        } catch APIError.suspended {
             await loadStatus()
         } catch APIError.unauthorized {
             isUnauthorized = true

@@ -8,6 +8,7 @@ struct DayStatus: Codable {
     let sendUsed: Bool
     let receiveUsed: Bool
     let date: Int
+    let suspendedUntil: Date?
 }
 
 struct MessageResponse: Codable, Equatable, Identifiable {
