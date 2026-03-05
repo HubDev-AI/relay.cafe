@@ -43,7 +43,7 @@ targets:
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
         CFBundleShortVersionString: "1.0.0"
-        CFBundleVersion: "9"
+        CFBundleVersion: "10"
         APIBaseURL: "https://api.relay.cafe"
         APITimeoutRequest: 10
         APITimeoutResource: 30
