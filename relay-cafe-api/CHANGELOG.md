@@ -1,5 +1,64 @@
 # Changelog
 
+## [0.3.0](https://github.com/HubDev-AI/relay.cafe/compare/relay-cafe-api-v0.2.0...relay-cafe-api-v0.3.0) (2026-03-05)
+
+
+### Features
+
+* account deletion cooldown ([44f8e28](https://github.com/HubDev-AI/relay.cafe/commit/44f8e2818fa80db2d9f4b486ed51cf8c5c1fccb3))
+* account deletion cooldown — build 9 ([3bcea83](https://github.com/HubDev-AI/relay.cafe/commit/3bcea83223cd04a0974dd1c0065c8a1b477c3575))
+* add cron to clean up expired cooldown records ([4feb9be](https://github.com/HubDev-AI/relay.cafe/commit/4feb9be57c63d7ceb8b40a235769a62cdfcf4cb7))
+* add deleted_accounts table for cooldown tracking ([ba5baec](https://github.com/HubDev-AI/relay.cafe/commit/ba5baece41b3e9f1bf5d982666e621699454585c))
+* add delivery log cleanup cron (48h retention) ([4cbc1c0](https://github.com/HubDev-AI/relay.cafe/commit/4cbc1c042101808079d52fca3171e7133470fb32))
+* add delivery log cleanup cron (48h retention) ([935f819](https://github.com/HubDev-AI/relay.cafe/commit/935f81941d2d5709de8b40c46906786196b27a9b))
+* add Dockerfile and full local dev stack with docker compose ([99fc760](https://github.com/HubDev-AI/relay.cafe/commit/99fc76099c939f66899dc1728184f649b086665c))
+* add in-process cron to clean up expired messages every 10 min ([86fd19d](https://github.com/HubDev-AI/relay.cafe/commit/86fd19dba246adc7c60dbf3af448d64f41ba3680))
+* add moderation migration SQL ([8bcd06d](https://github.com/HubDev-AI/relay.cafe/commit/8bcd06d47af4f72b5dee16cf6ecc8782f1632f19))
+* add moderation migration SQL ([748cb80](https://github.com/HubDev-AI/relay.cafe/commit/748cb80fb05aab86f6fe256d5f39eab3421a3b4f))
+* add moderation schema ([ecfbff8](https://github.com/HubDev-AI/relay.cafe/commit/ecfbff8ef92e2bc44d1c367cfa8e095b6428f26b))
+* add moderation schema — sender tracking, delivery log, reports, blocks ([5e4e723](https://github.com/HubDev-AI/relay.cafe/commit/5e4e72331199ccff307b28dd019d7496ae679d40))
+* add nextPeriodStart() helper for cooldown calculation ([660d009](https://github.com/HubDev-AI/relay.cafe/commit/660d00911f6bd36dccb25778cf8546fa6aec93ee))
+* add POST /messages/:id/block endpoint ([6597ffd](https://github.com/HubDev-AI/relay.cafe/commit/6597ffdfa4735b0eb8bbe1faf442eb26afa501f8))
+* add POST /messages/:id/block endpoint ([df966ff](https://github.com/HubDev-AI/relay.cafe/commit/df966ff90ae648f110613622541ba1bb53ed1a34))
+* add POST /messages/:id/report endpoint ([56abd4b](https://github.com/HubDev-AI/relay.cafe/commit/56abd4be339cac06ab18d0fa3b387955d40c5a55))
+* add POST /messages/:id/report endpoint with strike counting ([1a20622](https://github.com/HubDev-AI/relay.cafe/commit/1a20622cfc8227d6bfa2f8ce4baeb3198ec8ca55))
+* add send-time content filter ([8bb1632](https://github.com/HubDev-AI/relay.cafe/commit/8bb1632ad3410835a70c13e9e547af349b2837fc))
+* add send-time content filter for prohibited content ([7f4693e](https://github.com/HubDev-AI/relay.cafe/commit/7f4693e6b5c080dabe3ed19abfcd2ad60c06f2ef))
+* check cooldown before allowing sign-in ([d138931](https://github.com/HubDev-AI/relay.cafe/commit/d13893123fff5fa0f4aa1a45c4b7f72ae8883db7))
+* Docker Compose local dev stack ([f0c8b1c](https://github.com/HubDev-AI/relay.cafe/commit/f0c8b1ca554c048468844560a3a6b528bc9e9fda))
+* expired message cleanup cron ([fa61e35](https://github.com/HubDev-AI/relay.cafe/commit/fa61e3528d2e7da05d698e320e53f750a1fa7021))
+* insert cooldown record on account deletion ([e61e7b8](https://github.com/HubDev-AI/relay.cafe/commit/e61e7b860db8a1d1ab7eaa6596ec7d1a633c360b))
+* **ios:** add configurable API timeouts and production URL via Info.plist ([#38](https://github.com/HubDev-AI/relay.cafe/issues/38)) ([b9a3a89](https://github.com/HubDev-AI/relay.cafe/commit/b9a3a89d508f0c068de6bb7790f2faaae64470fb))
+* self-receive prevention, block filtering, delivery ledger on receive ([ee5530f](https://github.com/HubDev-AI/relay.cafe/commit/ee5530fee6734e3a5017573ea3ba88bfed18df7e))
+* self-receive prevention, block filtering, delivery ledger on receive ([98dcde1](https://github.com/HubDev-AI/relay.cafe/commit/98dcde1aed778dc5f60f34d8e94acea2f5fa0609))
+* suspension enforcement, onboarding terms, and QA tooling ([0091d8e](https://github.com/HubDev-AI/relay.cafe/commit/0091d8e4d81d2f01b66cb04637e4497911fa6cda))
+* suspension enforcement, onboarding terms, and QA tooling ([2ea1f4f](https://github.com/HubDev-AI/relay.cafe/commit/2ea1f4f56c4712a85efde395c4f61ebaa09ae80f))
+* switch from Upstash to Railway Redis ([213cdb9](https://github.com/HubDev-AI/relay.cafe/commit/213cdb9f7e8e0bbeeb4b7e014e9cf9db479d9031))
+* switch rate limiting from Upstash REST to Railway Redis via Bun.RedisClient ([c2aac33](https://github.com/HubDev-AI/relay.cafe/commit/c2aac33386eaeb9a8acbe9fa088a3fd23af86187))
+* transactional send with suspension check, content filter, sender tracking ([9a4c7f6](https://github.com/HubDev-AI/relay.cafe/commit/9a4c7f6c1bfffa4166b970d15432342e70fbd415))
+* transactional send with suspension check, content filter, sender tracking ([764cb8b](https://github.com/HubDev-AI/relay.cafe/commit/764cb8b7eed1a6c3332025a716dbf1d2e7127846))
+
+
+### Bug Fixes
+
+* add Redis command timeout, remove global rate limiter ([#34](https://github.com/HubDev-AI/relay.cafe/issues/34)) ([5465056](https://github.com/HubDev-AI/relay.cafe/commit/5465056960cdcc865806da006e75f1b25f68ffc0))
+* add Redis command timeout, remove global rate limiter ([#34](https://github.com/HubDev-AI/relay.cafe/issues/34)) ([#35](https://github.com/HubDev-AI/relay.cafe/issues/35)) ([900adb9](https://github.com/HubDev-AI/relay.cafe/commit/900adb940c39486b31141de1a97b317781195471))
+* block persistence across account deletion, email, FK cascades ([#62](https://github.com/HubDev-AI/relay.cafe/issues/62)) ([1575dc5](https://github.com/HubDev-AI/relay.cafe/commit/1575dc540f9a4a243c274dbf36722e205faf6e5d))
+* configure railway.toml for Dockerfile build with health check ([670ff58](https://github.com/HubDev-AI/relay.cafe/commit/670ff58dd066cf7e9d83e0352ce7d980d0eba961))
+* correct Railway watchPatterns to be relative to root directory ([eba66bb](https://github.com/HubDev-AI/relay.cafe/commit/eba66bb5fc668450e60f2580bec555a78934a437))
+* disable SRH Redis proxy for local dev ([1c320e2](https://github.com/HubDev-AI/relay.cafe/commit/1c320e254a3c160571e9cc54dae7f50acc0d8b5e))
+* disable SRH Redis proxy for local dev docker stack ([48991d1](https://github.com/HubDev-AI/relay.cafe/commit/48991d1a5684b14875d9b562ee9f94a956eb2e23))
+* moderation lifecycle audit fixes ([#68](https://github.com/HubDev-AI/relay.cafe/issues/68)) ([f77c0ab](https://github.com/HubDev-AI/relay.cafe/commit/f77c0abf90c3aa1ef14fd231cb9acfa5dcfa5b9e))
+* railway.toml Dockerfile build config ([74c6303](https://github.com/HubDev-AI/relay.cafe/commit/74c63032423fdf97049a4dbba9badcca49c4113e))
+* rate limiter fail-open and Redis Lua pipelining ([ccc9179](https://github.com/HubDev-AI/relay.cafe/commit/ccc9179acb29c13a91e9923b81e5cf435aaf91c1))
+* remove global rate limiter, keep per-route only ([54b2628](https://github.com/HubDev-AI/relay.cafe/commit/54b26288c8197b474cb3884482d85eec6f766c23))
+* repair broken tests and resolve remaining TS errors ([b0ed828](https://github.com/HubDev-AI/relay.cafe/commit/b0ed8289d7a40ab0d792ece113103b6a2a882512))
+* report endpoint race condition + daily_tokens cleanup ([#63](https://github.com/HubDev-AI/relay.cafe/issues/63)) ([db75d11](https://github.com/HubDev-AI/relay.cafe/commit/db75d1137a4c6c31e25f60c7fcea834a3cc5fe46))
+* resolve TypeScript strict mode errors in source files ([1b63d6d](https://github.com/HubDev-AI/relay.cafe/commit/1b63d6d4d8b5cbc1a2022dc089c0fcd7484d9040))
+* strip userId from Sentry error context ([243c39b](https://github.com/HubDev-AI/relay.cafe/commit/243c39bf89267696cc3b3887111b5003b7ff3733))
+* use new Cron() constructor and correct watchPatterns ([088b943](https://github.com/HubDev-AI/relay.cafe/commit/088b9433601c9b90bb7e0c35681cab1f7b07ab15))
+* wrap cooldown insert + user delete in transaction ([275ed09](https://github.com/HubDev-AI/relay.cafe/commit/275ed090f7c89f8c14e07a4118fa1b2898c28c2b))
+
 ## [0.2.0](https://github.com/HubDev-AI/relay.cafe/compare/relay-cafe-api-v0.1.0...relay-cafe-api-v0.2.0) (2026-02-23)
 
 
