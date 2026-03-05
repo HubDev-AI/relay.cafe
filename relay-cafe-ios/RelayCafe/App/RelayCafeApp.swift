@@ -2,7 +2,17 @@ import SwiftUI
 
 @main
 struct RelayCafeApp: App {
-    @State private var appVM = AppViewModel()
+    @State private var appVM: AppViewModel
+
+    init() {
+        if ProcessInfo.processInfo.arguments.contains("-resetState") {
+            UserDefaults.standard.removeObject(forKey: "onboardingComplete")
+            let keychain = KeychainManager()
+            try? keychain.delete(key: "sessionToken")
+            try? keychain.delete(key: "tokenExpiresAt")
+        }
+        _appVM = State(initialValue: AppViewModel())
+    }
 
     var body: some Scene {
         WindowGroup {

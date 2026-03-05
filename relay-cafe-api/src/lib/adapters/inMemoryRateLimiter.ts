@@ -34,7 +34,7 @@ export class InMemoryRateLimiter implements IRateLimiter {
     const timestamps = (this.store.get(compositeKey) ?? []).filter((t) => now - t < windowMs)
 
     if (timestamps.length >= maxRequests) {
-      const resetAt = timestamps[0] + windowMs
+      const resetAt = timestamps[0]! + windowMs
       return { allowed: false, remaining: 0, resetAt }
     }
 

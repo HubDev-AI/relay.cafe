@@ -4,6 +4,7 @@
     "": {
       "name": "relay-cafe-api",
       "dependencies": {
+        "@2toad/profanity": "^3.2.0",
         "@google-cloud/kms": "^5.4.0",
         "@hono/node-server": "^1.19.9",
         "@sentry/bun": "^10.39.0",
@@ -12,6 +13,7 @@
         "hono": "^4.12.1",
         "jose": "^6.1.3",
         "postgres": "^3.4.8",
+        "uuid": "^13.0.0",
       },
       "devDependencies": {
         "@types/bun": "latest",
@@ -25,6 +27,8 @@
     },
   },
   "packages": {
+    "@2toad/profanity": ["@2toad/profanity@3.2.0", "", {}, "sha512-1wF0F9SXBS8zsn74ZyDKhClSH+5Tupycq2F1x34+/1YKhrq49ejs+imH8/YIS/JwXoj2oUY+KTpoyOxJeNA2mQ=="],
+
     "@apm-js-collab/code-transformer": ["@apm-js-collab/code-transformer@0.8.2", "", {}, "sha512-YRjJjNq5KFSjDUoqu5pFUWrrsvGOxl6c3bu+uMFc9HNNptZ2rNU/TI2nLw4jnhQNtka972Ee2m3uqbvDQtPeCA=="],
 
     "@apm-js-collab/tracing-hooks": ["@apm-js-collab/tracing-hooks@0.3.1", "", { "dependencies": { "@apm-js-collab/code-transformer": "^0.8.0", "debug": "^4.4.1", "module-details-from-path": "^1.0.4" } }, "sha512-Vu1CbmPURlN5fTboVuKMoJjbO5qcq9fA5YXpskx3dXe/zTBvjODFoerw+69rVBlRLrJpwPqSDqEuJDEKIrTldw=="],
@@ -424,6 +428,8 @@
     "undici-types": ["undici-types@7.18.2", "", {}, "sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w=="],
 
     "util-deprecate": ["util-deprecate@1.0.2", "", {}, "sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw=="],
+
+    "uuid": ["uuid@13.0.0", "", { "bin": { "uuid": "dist-node/bin/uuid" } }, "sha512-XQegIaBTVUjSHliKqcnFqYypAd4S+WCYt5NIeRs6w/UAry7z8Y9j5ZwRRL4kzq9U3sD6v+85er9FvkEaBpji2w=="],
 
     "web-streams-polyfill": ["web-streams-polyfill@3.3.3", "", {}, "sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw=="],
 

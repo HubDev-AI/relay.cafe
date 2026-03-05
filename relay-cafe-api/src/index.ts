@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm'
 import { app } from './app'
 import { db } from './db'
 import { initSentry, captureError } from './lib/logger'
+import { currentPeriod } from './lib/period'
 
 initSentry()
 
@@ -29,11 +30,32 @@ new Cron('*/10 * * * *', async () => {
 
 new Cron('*/10 * * * *', async () => {
   try {
-    const result = await db.execute(sql`DELETE FROM deleted_accounts WHERE cooldown_until <= NOW()`)
+    const result = await db.execute(sql`DELETE FROM deleted_accounts WHERE cooldown_until <= NOW() AND (suspension_until IS NULL OR suspension_until <= NOW())`)
     const count = result.length
     if (count > 0) console.log(`[cleanup] deleted ${count} expired cooldown records`)
   } catch (err) {
     captureError(err, { source: 'cleanup-expired-cooldowns' })
+  }
+})
+
+new Cron('*/10 * * * *', async () => {
+  try {
+    const result = await db.execute(sql`DELETE FROM delivery_log WHERE delivered_at < NOW() - INTERVAL '48 hours'`)
+    const count = result.length
+    if (count > 0) console.log(`[cleanup] deleted ${count} expired delivery log entries`)
+  } catch (err) {
+    captureError(err, { source: 'cleanup-expired-delivery-log' })
+  }
+})
+
+new Cron('0 * * * *', async () => {
+  try {
+    const cutoff = currentPeriod() - 7
+    const result = await db.execute(sql`DELETE FROM daily_tokens WHERE date < ${cutoff}`)
+    const count = result.length
+    if (count > 0) console.log(`[cleanup] deleted ${count} stale daily token records`)
+  } catch (err) {
+    captureError(err, { source: 'cleanup-stale-daily-tokens' })
   }
 })
 

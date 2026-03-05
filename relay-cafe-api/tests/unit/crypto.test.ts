@@ -53,7 +53,7 @@ describe('encryptMessage + decryptMessage', () => {
   test('tampered ciphertext fails decryption', async () => {
     const { ciphertext, iv, key } = await encryptMessage('secret')
     const tampered = Buffer.from(ciphertext, 'base64')
-    tampered[20] ^= 0xff
+    tampered[20] = tampered[20]! ^ 0xff
     const tamperedB64 = tampered.toString('base64')
     await expect(decryptMessage(tamperedB64, iv, key)).rejects.toThrow()
   })

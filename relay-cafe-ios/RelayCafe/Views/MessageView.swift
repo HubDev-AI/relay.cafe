@@ -11,6 +11,9 @@ struct MessageView: View {
     @State private var translationFailed = false
     @State private var appeared = false
     @State private var expired = false
+    @State private var showReportAlert = false
+    @State private var showBlockAlert = false
+    @State private var showActions = false
     var displayText: String { translatedText ?? message.text }
 
     var body: some View {
@@ -62,17 +65,68 @@ struct MessageView: View {
                     }
                     .scrollIndicators(.hidden)
 
-                    Button("Close") { close() }
-                        .font(.system(size: 17))
-                        .opacity(0.35)
-                        .buttonStyle(.plain)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.top, 32)
-                        .padding(.bottom, 48)
-                        .accessibilityIdentifier("message.closeButton")
+                    VStack(spacing: 24) {
+                        Button("Close") { close() }
+                            .font(.system(size: 17))
+                            .opacity(0.35)
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("message.closeButton")
+
+                        ZStack {
+                            VStack(spacing: 14) {
+                                Button("Report") { showReportAlert = true }
+                                    .font(.system(size: 13))
+                                    .opacity(0.3)
+                                    .buttonStyle(.plain)
+                                    .accessibilityIdentifier("message.reportButton")
+
+                                Button("Block sender") { showBlockAlert = true }
+                                    .font(.system(size: 13))
+                                    .opacity(0.3)
+                                    .buttonStyle(.plain)
+                                    .accessibilityIdentifier("message.blockButton")
+                            }
+                            .opacity(showActions ? 1 : 0)
+
+                            Button(action: { showActions = true }) {
+                                Image(systemName: "ellipsis")
+                                    .font(.system(size: 14))
+                                    .opacity(0.2)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("message.moreButton")
+                            .opacity(showActions ? 0 : 1)
+                            .allowsHitTesting(!showActions)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.top, 32)
+                    .padding(.bottom, 48)
                 }
             .padding(.horizontal, 28)
             }
+        }
+        .alert("Report this message?", isPresented: $showReportAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Report", role: .destructive) {
+                Task {
+                    await homeVM.reportMessage(id: message.id)
+                    dismiss()
+                }
+            }
+        } message: {
+            Text("The message will be removed and reviewed according to our guidelines.")
+        }
+        .alert("Block this sender?", isPresented: $showBlockAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Block", role: .destructive) {
+                Task {
+                    await homeVM.blockSender(messageId: message.id)
+                    dismiss()
+                }
+            }
+        } message: {
+            Text("You will not receive messages from this sender again.")
         }
         .onAppear {
             withAnimation { appeared = true }

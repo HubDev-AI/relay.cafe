@@ -8,6 +8,7 @@ struct DayStatus: Codable {
     let sendUsed: Bool
     let receiveUsed: Bool
     let date: Int
+    let suspendedUntil: Date?
 }
 
 struct MessageResponse: Codable, Equatable, Identifiable {
@@ -22,6 +23,7 @@ enum APIError: Error {
     case unauthorized
     case alreadyUsedToday
     case cooldown(until: Date)
+    case suspended
     case networkError(Error)
     case serverError(Int)
     case decodingError(Error)
@@ -33,6 +35,11 @@ actor APIClient {
     static let shared = APIClient()
 
     private static let defaultBaseURL: URL = {
+        // UI test override via launch environment
+        if let envURL = ProcessInfo.processInfo.environment["API_BASE_URL"],
+           let url = URL(string: envURL) {
+            return url
+        }
         let info = Bundle.main.infoDictionary
         if let urlString = info?["APIBaseURL"] as? String, let url = URL(string: urlString) {
             return url
@@ -131,6 +138,16 @@ actor APIClient {
     func deleteAccount() async throws {
         try await delete("/v1/me")
         clearToken()
+    }
+
+    // MARK: Moderation
+
+    func reportMessage(id: String) async throws {
+        try await postEmpty("/v1/messages/\(id)/report", body: [:])
+    }
+
+    func blockSender(messageId: String) async throws {
+        try await postEmpty("/v1/messages/\(messageId)/block", body: [:])
     }
 
     // MARK: Telemetry
@@ -238,11 +255,14 @@ actor APIClient {
         case 200...299: return (data, response)
         case 401:       throw APIError.unauthorized
         case 403:
-            struct CooldownResponse: Decodable { let error: String; let cooldownUntil: Double? }
-            if let cooldown = try? JSONDecoder().decode(CooldownResponse.self, from: data),
-               cooldown.error == "cooldown",
-               let ms = cooldown.cooldownUntil {
-                throw APIError.cooldown(until: Date(timeIntervalSince1970: ms / 1000))
+            struct ForbiddenResponse: Decodable { let error: String; let cooldownUntil: Double? }
+            if let body = try? JSONDecoder().decode(ForbiddenResponse.self, from: data) {
+                if body.error == "cooldown", let ms = body.cooldownUntil {
+                    throw APIError.cooldown(until: Date(timeIntervalSince1970: ms / 1000))
+                }
+                if body.error.contains("suspended") {
+                    throw APIError.suspended
+                }
             }
             throw APIError.serverError(403)
         case 429:       throw APIError.alreadyUsedToday

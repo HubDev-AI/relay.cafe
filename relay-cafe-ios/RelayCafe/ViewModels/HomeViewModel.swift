@@ -10,6 +10,9 @@ final class HomeViewModel {
     var receiveState: ReceiveState = .idle
     var statusError: String?
     var isUnauthorized = false
+    var moderationNotice: String?
+    var isSuspended = false
+    private var suspensionRefreshTask: Task<Void, Never>?
 
     enum ReceiveState: Equatable {
         case idle, loading, quiet, received(MessageResponse), error(String)
@@ -21,10 +24,27 @@ final class HomeViewModel {
         defer { isLoading = false }
         do {
             status = try await APIClient.shared.getStatus()
+            updateSuspension()
         } catch APIError.unauthorized {
             isUnauthorized = true
         } catch {
             statusError = "Connection unavailable.\nPlease try again."  // case 1
+        }
+    }
+
+    private func updateSuspension() {
+        suspensionRefreshTask?.cancel()
+
+        if let until = status?.suspendedUntil, until > Date() {
+            isSuspended = true
+            let delay = until.timeIntervalSinceNow + 1
+            suspensionRefreshTask = Task {
+                try? await Task.sleep(for: .seconds(delay))
+                guard !Task.isCancelled else { return }
+                await loadStatus()
+            }
+        } else {
+            isSuspended = false
         }
     }
 
@@ -42,6 +62,8 @@ final class HomeViewModel {
             }
         } catch APIError.alreadyUsedToday {
             await loadStatus()
+        } catch APIError.suspended {
+            await loadStatus()
         } catch APIError.unauthorized {
             isUnauthorized = true
         } catch APIError.serverError(404) {
@@ -49,5 +71,27 @@ final class HomeViewModel {
         } catch {
             receiveState = .error("Unable to open message.\nPlease try again.")  // case 3
         }
+    }
+
+    func reportMessage(id: String) async {
+        do {
+            try await APIClient.shared.reportMessage(id: id)
+        } catch {
+            // Silently succeed — even on 404 (outside retention window)
+        }
+        moderationNotice = "Message reported."
+    }
+
+    func blockSender(messageId: String) async {
+        do {
+            try await APIClient.shared.blockSender(messageId: messageId)
+        } catch {
+            // Silently succeed
+        }
+        moderationNotice = "Sender blocked."
+    }
+
+    func clearModerationNotice() {
+        moderationNotice = nil
     }
 }

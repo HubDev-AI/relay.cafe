@@ -1,5 +1,5 @@
 import { db } from '../../src/db'
-import { users, sessions, dailyTokens, messages } from '../../src/db/schema'
+import { users, sessions, dailyTokens, messages, deliveryLog, reports, blockedSenders, deletedAccounts } from '../../src/db/schema'
 import { sql } from 'drizzle-orm'
 import { randomUUID, createHash } from 'node:crypto'
 import { generateToken, hashToken } from '../../src/lib/sessionToken'
@@ -8,7 +8,11 @@ import { generateToken, hashToken } from '../../src/lib/sessionToken'
  * Wipe all rows. Call in beforeAll/beforeEach.
  */
 export async function resetDB() {
-  // Order matters: foreign keys
+  // Order matters: FK dependencies (children before parents)
+  await db.delete(reports)
+  await db.delete(deliveryLog)
+  await db.delete(deletedAccounts)
+  await db.delete(blockedSenders)
   await db.delete(messages)
   await db.delete(dailyTokens)
   await db.delete(sessions)
@@ -42,9 +46,16 @@ export async function createSession(userId: string, expiresInMs = 30 * 24 * 60 *
  * Insert an encrypted message directly into the DB for receive tests.
  * Uses real KMS encryption.
  */
-export async function createMessage(opts?: { expiresInMs?: number }) {
+export async function createMessage(opts?: { expiresInMs?: number; senderUserId?: string }) {
   const { encryptMessage } = await import('../../src/lib/crypto')
   const { wrapKey } = await import('../../src/lib/kms')
+
+  // Use provided sender or create one
+  let senderUserId = opts?.senderUserId
+  if (!senderUserId) {
+    const { user } = await createUser()
+    senderUserId = user.id
+  }
 
   const text = `test-message-${randomUUID()}`
   const { ciphertext, iv, key } = await encryptMessage(text)
@@ -54,6 +65,7 @@ export async function createMessage(opts?: { expiresInMs?: number }) {
   const expiresAt = new Date(Date.now() + ttlMs)
 
   const [msg] = await db.insert(messages).values({
+    senderUserId,
     ciphertext,
     encryptedMessageKey: encryptedKey,
     kmsKeyVersion: keyVersion,
@@ -61,7 +73,7 @@ export async function createMessage(opts?: { expiresInMs?: number }) {
     expiresAt,
   }).returning()
 
-  return { message: msg!, plaintext: text }
+  return { message: msg!, plaintext: text, senderUserId }
 }
 
 /**

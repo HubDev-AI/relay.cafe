@@ -18,25 +18,43 @@ struct SettingsView: View {
                 if showDeleteConfirm {
                     deleteConfirmView
                 } else {
-                    VStack(spacing: 10) {
-                        Button("Delete account") {
-                            showDeleteConfirm = true
+                    VStack(spacing: 32) {
+                        Button("Sign out") {
+                            Task { await signOut() }
                         }
                         .font(.system(size: 17))
                         .opacity(0.5)
                         .buttonStyle(.plain)
-                        .accessibilityIdentifier("settings.deleteButton")
+                        .accessibilityIdentifier("settings.signOutButton")
 
-                        Text("Your account and data will be permanently removed.")
-                            .font(.system(size: 13))
-                            .opacity(0.3)
-                            .multilineTextAlignment(.center)
+                        VStack(spacing: 10) {
+                            Button("Delete account") {
+                                showDeleteConfirm = true
+                            }
+                            .font(.system(size: 17))
+                            .opacity(0.35)
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("settings.deleteButton")
+
+                            Text("Your account and data will be permanently removed.")
+                                .font(.system(size: 13))
+                                .opacity(0.3)
+                                .multilineTextAlignment(.center)
+                        }
                     }
                 }
 
                 Spacer()
 
                 VStack(spacing: 16) {
+                    Button("Community Guidelines") {
+                        safariURL = URL(string: "https://relay.cafe/guidelines")
+                    }
+                    .font(.system(size: 14))
+                    .opacity(0.35)
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("settings.guidelinesButton")
+
                     Button("Terms of Use") {
                         safariURL = URL(string: "https://relay.cafe/terms")
                     }
@@ -103,6 +121,15 @@ struct SettingsView: View {
                 .accessibilityIdentifier("settings.confirmDeleteButton")
             }
         }
+    }
+
+    private func signOut() async {
+        do {
+            try await APIClient.shared.signOut()
+        } catch {
+            // Token already cleared on 401; force sign-out regardless
+        }
+        appVM.didSignOut()
     }
 
     private func deleteAccount() async {

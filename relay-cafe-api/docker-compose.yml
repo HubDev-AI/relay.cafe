@@ -1,18 +1,20 @@
-# Local dev stack: API + Postgres + Redis.
-# Usage: docker compose up --build
+# Local dev stack: Postgres + Redis (+ optional API container).
+# Usage:
+#   make dev          — start postgres + redis only (run API natively)
+#   make up           — start full stack including API container
 services:
   postgres:
     image: postgres:16-alpine
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: relaycafe
-      POSTGRES_PASSWORD: relaycafe
+      POSTGRES_USER: relay
+      POSTGRES_PASSWORD: relay
       POSTGRES_DB: relaycafe
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U relaycafe"]
+      test: ["CMD-SHELL", "pg_isready -U relay -d relaycafe"]
       interval: 3s
       timeout: 3s
       retries: 10
@@ -21,6 +23,11 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
 
   api:
     build: .
@@ -28,7 +35,7 @@ services:
       - "3000:3000"
     env_file: .env
     environment:
-      DATABASE_URL: postgres://relaycafe:relaycafe@postgres:5432/relaycafe
+      DATABASE_URL: postgres://relay:relay@postgres:5432/relaycafe
       REDIS_URL: redis://redis:6379
     volumes:
       - ./gcp-credentials.json:/app/gcp-credentials.json:ro
@@ -36,7 +43,7 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
   pgdata:

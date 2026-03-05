@@ -1,16 +1,19 @@
 import { Hono } from 'hono'
 import { db } from '../db'
-import { messages, dailyTokens } from '../db/schema'
+import { messages, dailyTokens, users, deliveryLog, reports } from '../db/schema'
 import { and, eq, sql } from 'drizzle-orm'
 import { encryptMessage, decryptMessage } from '../lib/crypto'
 import { wrapKey, unwrapKey } from '../lib/kms'
 import { currentPeriod } from '../lib/period'
 import { captureError } from '../lib/logger'
+import { checkContent } from '../lib/contentFilter'
 import { createRateLimitMiddleware } from '../middleware/rateLimit'
 import { rateLimiter } from '../lib/container'
+import { STRIKE_THRESHOLD, SUSPENSION_DURATION_DAYS, STRIKE_DECAY_DAYS } from '../lib/moderationConfig'
+import { validate as uuidValidate } from 'uuid'
 
 // authMiddleware is applied by app.ts when mounting this router
-export const messagesRouter = new Hono()
+export const messagesRouter = new Hono<{ Variables: { userId: string } }>()
 
 messagesRouter.post('/', createRateLimitMiddleware(rateLimiter, 'messages'), async (c) => {
   const body = await c.req.json().catch(() => null)
@@ -21,74 +24,93 @@ messagesRouter.post('/', createRateLimitMiddleware(rateLimiter, 'messages'), asy
     return c.json({ error: 'text exceeds 1000 characters' }, 400)
   }
 
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const today = currentPeriod()
 
-  // Upsert daily token row
-  await db
-    .insert(dailyTokens)
-    .values({ userId, date: today, sendUsed: false, receiveUsed: false })
-    .onConflictDoNothing()
-
-  // Atomically claim the send token: UPDATE ... WHERE sendUsed = false
-  // Returns the updated row only if the token was available (prevents TOCTOU race)
-  const claimed = await db
-    .update(dailyTokens)
-    .set({ sendUsed: true })
-    .where(
-      and(
-        eq(dailyTokens.userId, userId),
-        eq(dailyTokens.date, today),
-        eq(dailyTokens.sendUsed, false),
-      ),
-    )
-    .returning()
-
-  if (claimed.length === 0) {
-    return c.json({ error: 'Already sent today.' }, 429)
+  // Content filter runs before transaction — blocked content never touches the DB or consumes a token
+  if (checkContent(body.text).blocked) {
+    return c.json({ error: 'This message violates community guidelines.' }, 400)
   }
 
-  // Encrypt + insert. If encrypt/KMS/insert fails, roll back the send token
-  // so the user doesn't lose their daily send on a server-side failure.
   try {
-    const { ciphertext, iv, key } = await encryptMessage(body.text)
-    const { encryptedKey, keyVersion } = await wrapKey(key)
+    const result = await db.transaction(async (tx) => {
+      // 1. Suspension check (first — before token claim)
+      const [user] = await tx
+        .select({ suspensionUntil: users.suspensionUntil })
+        .from(users)
+        .where(eq(users.id, userId))
 
-    const ttlMs = (Number(process.env.MESSAGE_TTL_SECONDS) || 86400) * 1000
-    const expiresAt = new Date(Date.now() + ttlMs)
+      if (user?.suspensionUntil && user.suspensionUntil > new Date()) {
+        return { suspended: true } as const
+      }
 
-    await db.insert(messages).values({
-      ciphertext,
-      encryptedMessageKey: encryptedKey,
-      kmsKeyVersion: keyVersion,
-      iv,
-      expiresAt,
-    })
+      // 2. Upsert daily token row
+      await tx
+        .insert(dailyTokens)
+        .values({ userId, date: today, sendUsed: false, receiveUsed: false })
+        .onConflictDoNothing()
 
-    return c.json({ ok: true }, 201)
-  } catch (err) {
-    captureError(err, { route: 'POST /messages', action: 'encrypt-and-insert' })
-    // Roll back send token so user can retry
-    try {
-      await db
+      // 3. Claim send token
+      const claimed = await tx
         .update(dailyTokens)
-        .set({ sendUsed: false })
+        .set({ sendUsed: true })
         .where(
           and(
             eq(dailyTokens.userId, userId),
             eq(dailyTokens.date, today),
+            eq(dailyTokens.sendUsed, false),
           ),
         )
-    } catch (rollbackErr) {
-      captureError(rollbackErr, { route: 'POST /messages', action: 'send-token-rollback' })
+        .returning()
+
+      if (claimed.length === 0) {
+        return { alreadySent: true } as const
+      }
+
+      // 4. Encrypt + insert with sender_user_id
+      const { ciphertext, iv, key } = await encryptMessage(body.text)
+      const { encryptedKey, keyVersion } = await wrapKey(key)
+
+      const ttlMs = (Number(process.env.MESSAGE_TTL_SECONDS) || 86400) * 1000
+      const expiresAt = new Date(Date.now() + ttlMs)
+
+      await tx.insert(messages).values({
+        senderUserId: userId,
+        ciphertext,
+        encryptedMessageKey: encryptedKey,
+        kmsKeyVersion: keyVersion,
+        iv,
+        expiresAt,
+      })
+
+      return { ok: true } as const
+    })
+
+    if ('suspended' in result && result.suspended) {
+      return c.json({ error: 'Your account has been suspended for violating community guidelines.' }, 403)
     }
+    if ('alreadySent' in result && result.alreadySent) {
+      return c.json({ error: 'Already sent today.' }, 429)
+    }
+    return c.json({ ok: true }, 201)
+  } catch (err) {
+    captureError(err, { route: 'POST /messages', action: 'send' })
     return c.json({ error: 'Unable to send message.' }, 500)
   }
 })
 
 messagesRouter.get('/today', createRateLimitMiddleware(rateLimiter, 'messages'), async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const today = currentPeriod()
+
+  // Suspension check — suspended users cannot receive
+  const [user] = await db
+    .select({ suspensionUntil: users.suspensionUntil })
+    .from(users)
+    .where(eq(users.id, userId))
+  if (user?.suspensionUntil && user.suspensionUntil > new Date()) {
+    return c.json({ error: 'Your account has been suspended for violating community guidelines.' }, 403)
+  }
 
   // Upsert daily token row
   await db
@@ -113,12 +135,9 @@ messagesRouter.get('/today', createRateLimitMiddleware(rateLimiter, 'messages'),
     return c.json({ error: 'Already received today.' }, 429)
   }
 
-  // Transaction: lock message → decrypt → delete only on success.
-  // If decryption fails, rollback preserves the message and the
-  // receive token is rolled back outside the transaction.
   try {
     const result = await db.transaction(async (tx) => {
-      // Lock a random unexpired message
+      // Lock a random unexpired message, excluding self and blocked senders
       const candidates = await tx.execute<{
         id: string
         ciphertext: string
@@ -126,23 +145,37 @@ messagesRouter.get('/today', createRateLimitMiddleware(rateLimiter, 'messages'),
         kms_key_version: string
         iv: string
         expires_at: Date
+        sender_user_id: string
       }>(sql`
-        SELECT id, ciphertext, encrypted_message_key, kms_key_version, iv, expires_at
-        FROM messages
-        WHERE expires_at > NOW()
+        SELECT m.id, m.ciphertext, m.encrypted_message_key, m.kms_key_version, m.iv, m.expires_at, m.sender_user_id
+        FROM messages m
+        JOIN users sender ON sender.id = m.sender_user_id
+        WHERE m.expires_at > NOW()
+          AND m.sender_user_id != ${userId}
+          AND NOT EXISTS (
+            SELECT 1 FROM blocked_senders bs
+            WHERE bs.blocker_user_id = ${userId}
+              AND bs.blocked_apple_id_hash = sender.apple_id_hash
+          )
         ORDER BY RANDOM()
         LIMIT 1
-        FOR UPDATE SKIP LOCKED
+        FOR UPDATE OF m SKIP LOCKED
       `)
 
       const msg = candidates[0]
       if (!msg) return null
 
-      // Decrypt before deleting — if this fails, transaction rolls back
+      // Decrypt
       const key = await unwrapKey(msg.encrypted_message_key, msg.kms_key_version)
       const text = await decryptMessage(msg.ciphertext, msg.iv, key)
 
-      // Decryption succeeded — now delete
+      // Write delivery log BEFORE deletion
+      await tx.execute(sql`
+        INSERT INTO delivery_log (id, message_id, sender_user_id, recipient_user_id)
+        VALUES (gen_random_uuid(), ${msg.id}, ${msg.sender_user_id}, ${userId})
+      `)
+
+      // Delete message
       await tx.execute(sql`DELETE FROM messages WHERE id = ${msg.id}`)
 
       const expiresAt = msg.expires_at instanceof Date
@@ -169,8 +202,6 @@ messagesRouter.get('/today', createRateLimitMiddleware(rateLimiter, 'messages'),
     return c.json(result)
   } catch (err) {
     captureError(err, { route: 'GET /messages/today', action: 'decrypt-and-deliver' })
-    // Decrypt or KMS failure — transaction rolled back, message preserved.
-    // Roll back receive token so user can try again.
     try {
       await db
         .update(dailyTokens)
@@ -186,4 +217,150 @@ messagesRouter.get('/today', createRateLimitMiddleware(rateLimiter, 'messages'),
     }
     return c.json({ error: 'Unable to process message.' }, 500)
   }
+})
+
+messagesRouter.post('/:id/report', createRateLimitMiddleware(rateLimiter, 'messages'), async (c) => {
+  const userId = c.get('userId')
+  const messageId = c.req.param('id')
+
+  if (!uuidValidate(messageId)) {
+    return c.json({ error: 'Not found' }, 404)
+  }
+
+  // Look up delivery log — can only report messages you received, within 48h
+  const [delivery] = await db
+    .select({
+      senderUserId: deliveryLog.senderUserId,
+    })
+    .from(deliveryLog)
+    .where(
+      and(
+        eq(deliveryLog.messageId, messageId),
+        eq(deliveryLog.recipientUserId, userId),
+      ),
+    )
+
+  if (!delivery) {
+    return c.json({ error: 'Not found' }, 404)
+  }
+
+  try {
+    const result = await db.transaction(async (tx) => {
+      // Idempotency check inside transaction to prevent race
+      const [existingReport] = await tx
+        .select({ id: reports.id })
+        .from(reports)
+        .where(
+          and(
+            eq(reports.messageId, messageId),
+            eq(reports.reporterUserId, userId),
+          ),
+        )
+
+      if (existingReport) {
+        return { alreadyReported: true } as const
+      }
+
+      // Atomic strike decay + increment + suspension in one query
+      // new_count is computed once in CTE to avoid duplicated CASE logic
+      // Uses N * INTERVAL '1 day' instead of sql.raw() for safe parameterization
+      const [updated] = await tx.execute<{ strike_count: number; suspension_until: Date | null }>(sql`
+        WITH new_strikes AS (
+          SELECT id,
+            CASE
+              WHEN last_strike_at IS NULL THEN 1
+              WHEN last_strike_at < NOW() - ${STRIKE_DECAY_DAYS} * INTERVAL '1 day' THEN 1
+              ELSE strike_count + 1
+            END AS new_count
+          FROM users
+          WHERE id = ${delivery.senderUserId}
+        )
+        UPDATE users u SET
+          strike_count = ns.new_count,
+          last_strike_at = NOW(),
+          suspension_until = CASE
+            WHEN ns.new_count >= ${STRIKE_THRESHOLD}
+            THEN GREATEST(
+              COALESCE(u.suspension_until, '1970-01-01'::timestamptz),
+              NOW() + ${SUSPENSION_DURATION_DAYS} * INTERVAL '1 day'
+            )
+            ELSE u.suspension_until
+          END
+        FROM new_strikes ns
+        WHERE u.id = ns.id
+        RETURNING u.strike_count, u.suspension_until
+      `)
+
+      if (!updated) {
+        return { senderGone: true } as const
+      }
+
+      const strikeCount = updated.strike_count
+      const actionTaken = updated.suspension_until && updated.suspension_until > new Date()
+        ? 'suspended'
+        : 'removed'
+
+      // Insert report
+      await tx.insert(reports).values({
+        messageId,
+        reporterUserId: userId,
+        senderUserId: delivery.senderUserId,
+        actionTaken,
+        strikeCountAfter: strikeCount,
+      })
+
+      return { ok: true } as const
+    })
+
+    return c.json({ ok: true })
+  } catch (err) {
+    captureError(err, { route: 'POST /messages/:id/report', action: 'report' })
+    return c.json({ error: 'Unable to process report.' }, 500)
+  }
+})
+
+messagesRouter.post('/:id/block', createRateLimitMiddleware(rateLimiter, 'messages'), async (c) => {
+  const userId = c.get('userId')
+  const messageId = c.req.param('id')
+
+  if (!uuidValidate(messageId)) {
+    return c.json({ error: 'Not found' }, 404)
+  }
+
+  // Look up delivery log — can only block senders of messages you received
+  const [delivery] = await db
+    .select({
+      senderUserId: deliveryLog.senderUserId,
+    })
+    .from(deliveryLog)
+    .where(
+      and(
+        eq(deliveryLog.messageId, messageId),
+        eq(deliveryLog.recipientUserId, userId),
+      ),
+    )
+
+  if (!delivery) {
+    return c.json({ error: 'Not found' }, 404)
+  }
+
+  // Look up sender's apple_id_hash — blocks persist across account deletion
+  const [sender] = await db
+    .select({ appleIdHash: users.appleIdHash })
+    .from(users)
+    .where(eq(users.id, delivery.senderUserId))
+
+  if (!sender) {
+    // Sender already deleted — nothing to block
+    return c.json({ ok: true })
+  }
+
+  // Insert block by apple_id_hash — idempotent via ON CONFLICT DO NOTHING
+  await db.execute(sql`
+    INSERT INTO blocked_senders (blocker_user_id, blocked_apple_id_hash)
+    VALUES (${userId}, ${sender.appleIdHash})
+    ON CONFLICT DO NOTHING
+  `)
+
+  return c.json({ ok: true })
 })
