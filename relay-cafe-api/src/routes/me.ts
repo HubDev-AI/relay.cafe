@@ -15,16 +15,28 @@ meRouter.get('/status', authMiddleware, async (c) => {
   const userId = c.get('userId')
   const today = currentPeriod()
 
-  const [tokens] = await db
-    .select()
-    .from(dailyTokens)
-    .where(and(eq(dailyTokens.userId, userId), eq(dailyTokens.date, today)))
-    .limit(1)
+  const [[tokens], [user]] = await Promise.all([
+    db
+      .select()
+      .from(dailyTokens)
+      .where(and(eq(dailyTokens.userId, userId), eq(dailyTokens.date, today)))
+      .limit(1),
+    db
+      .select({ suspensionUntil: users.suspensionUntil })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1),
+  ])
+
+  const suspensionUntil = user?.suspensionUntil && user.suspensionUntil > new Date()
+    ? user.suspensionUntil.getTime()
+    : null
 
   return c.json({
     sendUsed: tokens?.sendUsed ?? false,
     receiveUsed: tokens?.receiveUsed ?? false,
     date: today,
+    suspendedUntil: suspensionUntil,
   })
 })
 

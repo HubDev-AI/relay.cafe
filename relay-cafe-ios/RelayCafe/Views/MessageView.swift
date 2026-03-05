@@ -13,6 +13,7 @@ struct MessageView: View {
     @State private var expired = false
     @State private var showReportAlert = false
     @State private var showBlockAlert = false
+    @State private var showActions = false
     var displayText: String { translatedText ?? message.text }
 
     var body: some View {
@@ -64,24 +65,39 @@ struct MessageView: View {
                     }
                     .scrollIndicators(.hidden)
 
-                    VStack(spacing: 16) {
+                    VStack(spacing: 24) {
                         Button("Close") { close() }
                             .font(.system(size: 17))
                             .opacity(0.35)
                             .buttonStyle(.plain)
                             .accessibilityIdentifier("message.closeButton")
 
-                        Button("Report") { showReportAlert = true }
-                            .font(.system(size: 14))
-                            .opacity(0.45)
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier("message.reportButton")
+                        ZStack {
+                            VStack(spacing: 14) {
+                                Button("Report") { showReportAlert = true }
+                                    .font(.system(size: 13))
+                                    .opacity(0.3)
+                                    .buttonStyle(.plain)
+                                    .accessibilityIdentifier("message.reportButton")
 
-                        Button("Block sender") { showBlockAlert = true }
-                            .font(.system(size: 14))
-                            .opacity(0.45)
+                                Button("Block sender") { showBlockAlert = true }
+                                    .font(.system(size: 13))
+                                    .opacity(0.3)
+                                    .buttonStyle(.plain)
+                                    .accessibilityIdentifier("message.blockButton")
+                            }
+                            .opacity(showActions ? 1 : 0)
+
+                            Button(action: { showActions = true }) {
+                                Image(systemName: "ellipsis")
+                                    .font(.system(size: 14))
+                                    .opacity(0.2)
+                            }
                             .buttonStyle(.plain)
-                            .accessibilityIdentifier("message.blockButton")
+                            .accessibilityIdentifier("message.moreButton")
+                            .opacity(showActions ? 0 : 1)
+                            .allowsHitTesting(!showActions)
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.top, 32)

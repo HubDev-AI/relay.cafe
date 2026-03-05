@@ -103,6 +103,15 @@ messagesRouter.get('/today', createRateLimitMiddleware(rateLimiter, 'messages'),
   const userId = c.get('userId')
   const today = currentPeriod()
 
+  // Suspension check — suspended users cannot receive
+  const [user] = await db
+    .select({ suspensionUntil: users.suspensionUntil })
+    .from(users)
+    .where(eq(users.id, userId))
+  if (user?.suspensionUntil && user.suspensionUntil > new Date()) {
+    return c.json({ error: 'Your account has been suspended for violating community guidelines.' }, 403)
+  }
+
   // Upsert daily token row
   await db
     .insert(dailyTokens)

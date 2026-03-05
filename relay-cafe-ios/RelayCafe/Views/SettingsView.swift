@@ -1,6 +1,5 @@
 import SwiftUI
 import SafariServices
-import UIKit
 
 struct SettingsView: View {
     let appVM: AppViewModel
@@ -8,7 +7,6 @@ struct SettingsView: View {
     @State private var isDeleting = false
     @State private var deleteError: String?
     @State private var safariURL: URL?
-    @State private var copiedEmail = false
 
     var body: some View {
         ZStack {
@@ -39,12 +37,6 @@ struct SettingsView: View {
                 Spacer()
 
                 VStack(spacing: 16) {
-                    Text("Safety")
-                        .font(.system(size: 12, weight: .medium))
-                        .opacity(0.3)
-                        .textCase(.uppercase)
-                        .tracking(0.5)
-
                     Button("Community Guidelines") {
                         safariURL = URL(string: "https://relay.cafe/guidelines")
                     }
@@ -53,40 +45,6 @@ struct SettingsView: View {
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("settings.guidelinesButton")
 
-                    Text("If you encounter inappropriate content, use Report in-app or contact us.")
-                        .font(.system(size: 13))
-                        .opacity(0.3)
-                        .multilineTextAlignment(.center)
-
-                    Button("safety@relay.cafe") {
-                        if let url = URL(string: "mailto:safety@relay.cafe"),
-                           UIApplication.shared.canOpenURL(url) {
-                            UIApplication.shared.open(url)
-                        } else {
-                            UIPasteboard.general.string = "safety@relay.cafe"
-                            copiedEmail = true
-                            Task {
-                                try? await Task.sleep(for: .seconds(2))
-                                copiedEmail = false
-                            }
-                        }
-                    }
-                    .font(.system(size: 14))
-                    .opacity(0.35)
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("settings.safetyEmailButton")
-                    .overlay(alignment: .trailing) {
-                        if copiedEmail {
-                            Text("Copied")
-                                .font(.system(size: 11))
-                                .opacity(0.4)
-                                .padding(.leading, 8)
-                        }
-                    }
-                }
-                .padding(.bottom, 24)
-
-                VStack(spacing: 16) {
                     Button("Terms of Use") {
                         safariURL = URL(string: "https://relay.cafe/terms")
                     }

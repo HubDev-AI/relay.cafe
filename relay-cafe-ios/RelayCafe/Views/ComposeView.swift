@@ -107,7 +107,7 @@ struct ComposeView: View {
                 // Session expired — dismiss silently; HomeView will sign out
                 dismiss()
             } catch APIError.suspended {
-                homeVM.isSuspended = true
+                await homeVM.loadStatus()
                 dismiss()
             } catch APIError.alreadyUsedToday {
                 phase = .composing
