@@ -20,6 +20,7 @@
 | 2026-02-26 | self | Made multiple sloppy edits in a row: duplicate SWIFT_VERSION, wrong build number, missing version string, dropped dev team | Before committing project.yml changes, diff the generated Info.plist and project.pbxproj against the previous version to catch regressions |
 | 2026-02-25 | Redis | Global rate limiter on `*` including `/health` meant health checks hit Redis too — stalled Redis = failed health checks = deploy failures | Don't put rate limiter on health check routes. Use per-route rate limiting only. |
 | 2026-02-25 | deploy | `railway redeploy` invalidates Docker layer cache — builds take 5+ min instead of 30s. Triggered 3 deploys by doing git push + git push dev:main + railway up | Use `railway up` for quick testing. For production, merge via PR and let auto-deploy handle it (uses cached layers). |
+| 2026-03-17 | App Review | Relay.cafe was rejected under Guideline 2.1 because review could not access demo data; reviewer explicitly asked for username/password in App Review Information | Before each submission, seed production messages using `docs/apple app review/seed-messages-for-review.md` and fill App Review Information with stable review credentials or exact review steps plus seeded-data notes. |
 
 ## User Preferences
 - Apple Sign-In only (no phone verification — original IDEA.md had phone SMS but system design superseded it)

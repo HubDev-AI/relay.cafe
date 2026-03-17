@@ -2,9 +2,11 @@ Hello App Review Team,
 
 Thank you for your feedback regarding Guidelines 1.1 and 1.2.
 
-We have updated the app to fully comply with the User Generated Content requirements.
+We have updated the app to address the User Generated Content requirements.
 
-Relay.cafe is a one-to-one ephemeral messaging app. Messages are delivered to a single recipient and deleted upon delivery. There is no public feed, search, broadcasting, or profile system.
+Relay.cafe is a one-to-one ephemeral messaging app. Messages are delivered to a single recipient and automatically deleted after delivery or expiration. There is no public feed, search, broadcasting, or profile system.
+
+Messages are delivered privately to a single recipient and cannot be viewed by multiple users or shared publicly.
 
 To address Guideline 1.2, we have implemented the following safeguards:
 
@@ -17,6 +19,6 @@ To address Guideline 1.2, we have implemented the following safeguards:
 • In-app contact information for abuse reporting
 • A 24-hour review commitment for all reported content
 
-We believe these updates bring the app into compliance with the App Store Review Guidelines and respectfully request re-evaluation.
+We believe these updates address the concerns raised in the previous review and respectfully request re-evaluation.
 
 Thank you for your time and consideration.
