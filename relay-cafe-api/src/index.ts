@@ -5,6 +5,7 @@ import { app } from './app'
 import { db } from './db'
 import { initSentry, captureError } from './lib/logger'
 import { currentPeriod } from './lib/period'
+import { isDemoMode } from './lib/demo'
 
 initSentry()
 
@@ -61,4 +62,5 @@ new Cron('0 * * * *', async () => {
 
 serve({ fetch: app.fetch, port: 3000 }, () => {
   console.log('relay-cafe-api running on :3000')
+  if (isDemoMode()) console.log('[demo] DEMO_MODE is ON — token limits disabled')
 })

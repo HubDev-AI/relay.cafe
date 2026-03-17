@@ -5,6 +5,7 @@ import { eq, and } from 'drizzle-orm'
 import { authMiddleware } from '../middleware/auth'
 import { currentPeriod } from '../lib/period'
 import { nextPeriodStart } from '../lib/period'
+import { isDemoMode } from '../lib/demo'
 
 export const meRouter = new Hono<{ Variables: { userId: string } }>()
 
@@ -33,8 +34,8 @@ meRouter.get('/status', authMiddleware, async (c) => {
     : null
 
   return c.json({
-    sendUsed: tokens?.sendUsed ?? false,
-    receiveUsed: tokens?.receiveUsed ?? false,
+    sendUsed: isDemoMode() ? false : (tokens?.sendUsed ?? false),
+    receiveUsed: isDemoMode() ? false : (tokens?.receiveUsed ?? false),
     date: today,
     suspendedUntil: suspensionUntil,
   })

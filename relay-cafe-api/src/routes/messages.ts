@@ -10,6 +10,7 @@ import { checkContent } from '../lib/contentFilter'
 import { createRateLimitMiddleware } from '../middleware/rateLimit'
 import { rateLimiter } from '../lib/container'
 import { STRIKE_THRESHOLD, SUSPENSION_DURATION_DAYS, STRIKE_DECAY_DAYS } from '../lib/moderationConfig'
+import { isDemoMode } from '../lib/demo'
 import { validate as uuidValidate } from 'uuid'
 
 // authMiddleware is applied by app.ts when mounting this router
@@ -44,27 +45,29 @@ messagesRouter.post('/', createRateLimitMiddleware(rateLimiter, 'messages'), asy
         return { suspended: true } as const
       }
 
-      // 2. Upsert daily token row
-      await tx
-        .insert(dailyTokens)
-        .values({ userId, date: today, sendUsed: false, receiveUsed: false })
-        .onConflictDoNothing()
+      if (!isDemoMode()) {
+        // 2. Upsert daily token row
+        await tx
+          .insert(dailyTokens)
+          .values({ userId, date: today, sendUsed: false, receiveUsed: false })
+          .onConflictDoNothing()
 
-      // 3. Claim send token
-      const claimed = await tx
-        .update(dailyTokens)
-        .set({ sendUsed: true })
-        .where(
-          and(
-            eq(dailyTokens.userId, userId),
-            eq(dailyTokens.date, today),
-            eq(dailyTokens.sendUsed, false),
-          ),
-        )
-        .returning()
+        // 3. Claim send token
+        const claimed = await tx
+          .update(dailyTokens)
+          .set({ sendUsed: true })
+          .where(
+            and(
+              eq(dailyTokens.userId, userId),
+              eq(dailyTokens.date, today),
+              eq(dailyTokens.sendUsed, false),
+            ),
+          )
+          .returning()
 
-      if (claimed.length === 0) {
-        return { alreadySent: true } as const
+        if (claimed.length === 0) {
+          return { alreadySent: true } as const
+        }
       }
 
       // 4. Encrypt + insert with sender_user_id
@@ -112,27 +115,29 @@ messagesRouter.get('/today', createRateLimitMiddleware(rateLimiter, 'messages'),
     return c.json({ error: 'Your account has been suspended for violating community guidelines.' }, 403)
   }
 
-  // Upsert daily token row
-  await db
-    .insert(dailyTokens)
-    .values({ userId, date: today, sendUsed: false, receiveUsed: false })
-    .onConflictDoNothing()
+  if (!isDemoMode()) {
+    // Upsert daily token row
+    await db
+      .insert(dailyTokens)
+      .values({ userId, date: today, sendUsed: false, receiveUsed: false })
+      .onConflictDoNothing()
 
-  // Atomically claim the receive token (prevents TOCTOU race)
-  const claimed = await db
-    .update(dailyTokens)
-    .set({ receiveUsed: true })
-    .where(
-      and(
-        eq(dailyTokens.userId, userId),
-        eq(dailyTokens.date, today),
-        eq(dailyTokens.receiveUsed, false),
-      ),
-    )
-    .returning()
+    // Atomically claim the receive token (prevents TOCTOU race)
+    const claimed = await db
+      .update(dailyTokens)
+      .set({ receiveUsed: true })
+      .where(
+        and(
+          eq(dailyTokens.userId, userId),
+          eq(dailyTokens.date, today),
+          eq(dailyTokens.receiveUsed, false),
+        ),
+      )
+      .returning()
 
-  if (claimed.length === 0) {
-    return c.json({ error: 'Already received today.' }, 429)
+    if (claimed.length === 0) {
+      return c.json({ error: 'Already received today.' }, 429)
+    }
   }
 
   try {
@@ -187,33 +192,37 @@ messagesRouter.get('/today', createRateLimitMiddleware(rateLimiter, 'messages'),
 
     if (!result) {
       // No messages available — roll back receive token
-      await db
-        .update(dailyTokens)
-        .set({ receiveUsed: false })
-        .where(
-          and(
-            eq(dailyTokens.userId, userId),
-            eq(dailyTokens.date, today),
-          ),
-        )
+      if (!isDemoMode()) {
+        await db
+          .update(dailyTokens)
+          .set({ receiveUsed: false })
+          .where(
+            and(
+              eq(dailyTokens.userId, userId),
+              eq(dailyTokens.date, today),
+            ),
+          )
+      }
       return c.body(null, 204)
     }
 
     return c.json(result)
   } catch (err) {
     captureError(err, { route: 'GET /messages/today', action: 'decrypt-and-deliver' })
-    try {
-      await db
-        .update(dailyTokens)
-        .set({ receiveUsed: false })
-        .where(
-          and(
-            eq(dailyTokens.userId, userId),
-            eq(dailyTokens.date, today),
-          ),
-        )
-    } catch (rollbackErr) {
-      captureError(rollbackErr, { route: 'GET /messages/today', action: 'receive-token-rollback' })
+    if (!isDemoMode()) {
+      try {
+        await db
+          .update(dailyTokens)
+          .set({ receiveUsed: false })
+          .where(
+            and(
+              eq(dailyTokens.userId, userId),
+              eq(dailyTokens.date, today),
+            ),
+          )
+      } catch (rollbackErr) {
+        captureError(rollbackErr, { route: 'GET /messages/today', action: 'receive-token-rollback' })
+      }
     }
     return c.json({ error: 'Unable to process message.' }, 500)
   }
